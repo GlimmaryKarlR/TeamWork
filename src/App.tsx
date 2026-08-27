@@ -389,7 +389,7 @@ export default function App() {
       />
 
       {/* Minimal Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-3 text-center text-xs text-slate-500">
+      <footer className="bg-slate-950 py-3 text-center text-xs text-slate-500">
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
           <span className="font-semibold text-slate-400">TeamWorkAi</span>
           <span className="text-[11px] text-slate-500">
