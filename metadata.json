@@ -1,0 +1,6 @@
+{
+  "name": "TeamWorkAi",
+  "description": "Multi-agent LLM pairing and collaboration platform to matchup teamed models, evaluate synergy benchmarks, and run cooperative task workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
