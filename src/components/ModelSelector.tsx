@@ -108,7 +108,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               <span className="w-5 h-5 rounded bg-blue-600/20 text-blue-400 font-bold text-xs flex items-center justify-center">
                 α
               </span>
-              <span>Agent Alpha (Proposer)</span>
+              <span>Agent Alpha</span>
             </div>
             {alphaModel.isFree && (
               <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/40">
@@ -151,17 +151,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               <optgroup key={`alpha-${provider}`} label={provider} className="bg-slate-950 text-slate-400 font-bold">
                 {pModels.map((model) => (
                   <option key={model.id} value={model.id} className="bg-slate-900 text-white">
-                    {model.name} {model.isFree ? '• FREE' : ''} {model.contextWindow ? `(${model.contextWindow})` : ''}
+                    {model.name} {model.isFree ? '• FREE' : ''}
                   </option>
                 ))}
               </optgroup>
             ))}
           </select>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-400">
-            <span className="truncate">{alphaModel.teamRole}</span>
-            <span className="font-mono text-slate-500 shrink-0 ml-1">{alphaModel.contextWindow}</span>
-          </div>
         </div>
 
         {/* Center: Team Benchmark Radar Graphic */}
@@ -181,7 +176,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               <span className="w-5 h-5 rounded bg-emerald-600/20 text-emerald-400 font-bold text-xs flex items-center justify-center">
                 β
               </span>
-              <span>Agent Beta (Reviewer)</span>
+              <span>Agent Beta</span>
             </div>
             {betaModel.isFree && (
               <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/40">
@@ -224,17 +219,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               <optgroup key={`beta-${provider}`} label={provider} className="bg-slate-950 text-slate-400 font-bold">
                 {pModels.map((model) => (
                   <option key={model.id} value={model.id} className="bg-slate-900 text-white">
-                    {model.name} {model.isFree ? '• FREE' : ''} {model.contextWindow ? `(${model.contextWindow})` : ''}
+                    {model.name} {model.isFree ? '• FREE' : ''}
                   </option>
                 ))}
               </optgroup>
             ))}
           </select>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-400">
-            <span className="truncate">{betaModel.teamRole}</span>
-            <span className="font-mono text-slate-500 shrink-0 ml-1">{betaModel.contextWindow}</span>
-          </div>
         </div>
       </div>
     </div>
