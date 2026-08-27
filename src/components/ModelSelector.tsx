@@ -117,19 +117,17 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             )}
           </div>
 
-          {/* Quick search if large list */}
-          {models.length > 15 && (
-            <div className="relative my-0.5">
-              <Search className="w-3 h-3 absolute left-2 top-2 text-slate-500" />
-              <input
-                type="text"
-                value={searchAlpha}
-                onChange={(e) => setSearchAlpha(e.target.value)}
-                placeholder="Filter Alpha models..."
-                className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 pl-6 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-          )}
+          {/* Quick search filter - always visible */}
+          <div className="relative my-0.5">
+            <Search className="w-3 h-3 absolute left-2 top-2 text-slate-500" />
+            <input
+              type="text"
+              value={searchAlpha}
+              onChange={(e) => setSearchAlpha(e.target.value)}
+              placeholder="Filter Alpha models..."
+              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 pl-6 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
 
           <select
             id="agent-alpha-select"
@@ -185,19 +183,17 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             )}
           </div>
 
-          {/* Quick search if large list */}
-          {models.length > 15 && (
-            <div className="relative my-0.5">
-              <Search className="w-3 h-3 absolute left-2 top-2 text-slate-500" />
-              <input
-                type="text"
-                value={searchBeta}
-                onChange={(e) => setSearchBeta(e.target.value)}
-                placeholder="Filter Beta models..."
-                className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 pl-6 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-          )}
+          {/* Quick search filter - always visible */}
+          <div className="relative my-0.5">
+            <Search className="w-3 h-3 absolute left-2 top-2 text-slate-500" />
+            <input
+              type="text"
+              value={searchBeta}
+              onChange={(e) => setSearchBeta(e.target.value)}
+              placeholder="Filter Beta models..."
+              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 pl-6 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
 
           <select
             id="agent-beta-select"

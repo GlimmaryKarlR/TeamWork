@@ -6,7 +6,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LLMModel, CollaborationProtocol, DialogueTurn, FinalConsensus } from './types';
 import { SUPPORTED_MODELS, PRESET_TASKS } from './data/benchmarkData';
+import { formatOpenRouterModel } from './data/openRouterModels';
 import { recommendIdealTeamForTask } from './data/radarData';
+import { runClientSideCollaboration } from './utils/directCollaboration';
 import { Header } from './components/Header';
 import { TeamingHeatmap } from './components/TeamingHeatmap';
 import { ModelSelector } from './components/ModelSelector';
@@ -76,7 +78,7 @@ export default function App() {
     }
   };
 
-  // Fetch or refresh models catalog from OpenRouter
+  // Fetch or refresh models catalog from OpenRouter (with direct public API fallback for static deployments)
   const fetchModels = useCallback(async (forceRefresh = false, customOrKey?: string) => {
     setIsRefreshingModels(true);
     try {
@@ -86,17 +88,67 @@ export default function App() {
       if (keyToUse) queryParams.set('apiKey', keyToUse);
 
       const url = `/api/openrouter/models?${queryParams.toString()}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.models) && data.models.length > 0) {
-          setModels(data.models);
-          setLastModelsUpdate(data.lastUpdated || new Date().toISOString());
+      let loadedModels: LLMModel[] | null = null;
+      let updatedAt = new Date().toISOString();
 
-          // Preserve selected alpha / beta with updated metadata if present
-          setAlphaModel((prev) => data.models.find((m: LLMModel) => m.id === prev.id) || prev);
-          setBetaModel((prev) => data.models.find((m: LLMModel) => m.id === prev.id) || prev);
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.models) && data.models.length > 0) {
+            loadedModels = data.models;
+            updatedAt = data.lastUpdated || updatedAt;
+          }
         }
+      } catch {
+        // Backend route failed or unavailable (e.g. static host like Vercel)
+      }
+
+      // If backend was not reachable or returned empty, fetch directly from OpenRouter public models endpoint
+      if (!loadedModels || loadedModels.length <= SUPPORTED_MODELS.length) {
+        try {
+          const directHeaders: Record<string, string> = {
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'TeamWorkAi',
+          };
+          if (keyToUse) {
+            directHeaders['Authorization'] = `Bearer ${keyToUse}`;
+          }
+
+          const directRes = await fetch('https://openrouter.ai/api/v1/models', {
+            headers: directHeaders,
+          });
+
+          if (directRes.ok) {
+            const directData = await directRes.json();
+            if (Array.isArray(directData.data) && directData.data.length > 0) {
+              const formattedList: LLMModel[] = directData.data.map((item: any) =>
+                formatOpenRouterModel(item)
+              );
+
+              const modelMap = new Map<string, LLMModel>();
+              SUPPORTED_MODELS.forEach((m) => modelMap.set(m.id, m));
+              formattedList.forEach((m) => {
+                if (!modelMap.has(m.id)) {
+                  modelMap.set(m.id, m);
+                }
+              });
+
+              loadedModels = Array.from(modelMap.values());
+            }
+          }
+        } catch (directErr) {
+          console.warn('Direct OpenRouter fetch failed:', directErr);
+        }
+      }
+
+      if (loadedModels && loadedModels.length > 0) {
+        setModels(loadedModels);
+        setLastModelsUpdate(updatedAt);
+
+        // Preserve selected alpha / beta with updated metadata if present
+        setAlphaModel((prev) => loadedModels!.find((m: LLMModel) => m.id === prev.id) || prev);
+        setBetaModel((prev) => loadedModels!.find((m: LLMModel) => m.id === prev.id) || prev);
       }
     } catch (err) {
       console.warn('Error syncing models from OpenRouter:', err);
@@ -185,29 +237,49 @@ export default function App() {
         setLoadingStep('Converging on mutual consensus deliverable...');
       }, 3000);
 
-      const response = await fetch('/api/collaborate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let data: { turns: DialogueTurn[]; finalConsensus: FinalConsensus | null } | null = null;
+
+      try {
+        const response = await fetch('/api/collaborate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            agentAlphaModelId: alphaModel.id,
+            agentBetaModelId: betaModel.id,
+            protocol,
+            rounds,
+            openrouterApiKey: openrouterApiKey || undefined,
+            geminiApiKey: geminiApiKey || undefined,
+            customModels: [alphaModel, betaModel],
+          }),
+        });
+
+        if (response.ok) {
+          data = await response.json();
+        }
+      } catch {
+        // Backend route unavailable (e.g. static host like Vercel)
+      }
+
+      // If backend was not available and user provided an OpenRouter key, run direct browser execution
+      if (!data && openrouterApiKey) {
+        data = await runClientSideCollaboration({
           prompt,
-          agentAlphaModelId: alphaModel.id,
-          agentBetaModelId: betaModel.id,
-          protocol,
+          alphaModel,
+          betaModel,
           rounds,
-          openrouterApiKey: openrouterApiKey || undefined,
-          geminiApiKey: geminiApiKey || undefined,
-          customModels: [alphaModel, betaModel],
-        }),
-      });
+          openrouterApiKey,
+        });
+      }
 
       clearTimeout(timer1);
       clearTimeout(timer2);
 
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
+      if (!data) {
+        throw new Error('Unable to run collaboration. Please check your API key in the API Keys settings menu.');
       }
 
-      const data = await response.json();
       setTurns(data.turns || []);
       setFinalConsensus(data.finalConsensus || null);
     } catch (err: any) {
