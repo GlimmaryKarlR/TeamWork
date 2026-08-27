@@ -14,6 +14,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#93c5fd',
     efficiencyTier: 'S',
     contextWindow: '1M tokens',
+    isFree: false,
   },
   {
     id: 'claude-3-7-sonnet',
@@ -28,6 +29,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#fde68a',
     efficiencyTier: 'S',
     contextWindow: '200K tokens',
+    isFree: false,
   },
   {
     id: 'gpt-4o',
@@ -42,6 +44,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#a7f3d0',
     efficiencyTier: 'A',
     contextWindow: '128K tokens',
+    isFree: false,
   },
   {
     id: 'deepseek-r1',
@@ -56,6 +59,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#c7d2fe',
     efficiencyTier: 'S',
     contextWindow: '128K tokens',
+    isFree: true,
   },
   {
     id: 'deepseek-v3',
@@ -70,6 +74,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#ddd6fe',
     efficiencyTier: 'A',
     contextWindow: '128K tokens',
+    isFree: true,
   },
   {
     id: 'qwen-2.5-72b',
@@ -84,6 +89,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#a5f3fc',
     efficiencyTier: 'A',
     contextWindow: '128K tokens',
+    isFree: true,
   },
   {
     id: 'llama-3.3-70b',
@@ -98,6 +104,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#bfdbfe',
     efficiencyTier: 'B',
     contextWindow: '128K tokens',
+    isFree: true,
   },
   {
     id: 'nova-lite',
@@ -112,6 +119,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#fed7aa',
     efficiencyTier: 'B',
     contextWindow: '300K tokens',
+    isFree: false,
   },
   {
     id: 'nemotron-3-30b',
@@ -126,6 +134,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#d9f99d',
     efficiencyTier: 'B',
     contextWindow: '128K tokens',
+    isFree: true,
   },
   {
     id: 'o3-mini',
@@ -140,6 +149,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#99f6e4',
     efficiencyTier: 'A',
     contextWindow: '200K tokens',
+    isFree: false,
   }
 ];
 

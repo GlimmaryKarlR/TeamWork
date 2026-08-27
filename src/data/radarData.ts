@@ -242,13 +242,60 @@ export interface TeamRecommendation {
   alphaModelId: string;
   betaModelId: string;
   reasoning: string;
+  isFreeTier?: boolean;
 }
 
 /**
  * Analyzes the user's task text and returns the optimal teamed model pair from benchmark runs
  */
-export function recommendIdealTeamForTask(prompt: string): TeamRecommendation {
+export function recommendIdealTeamForTask(prompt: string, onlyFreeTier: boolean = false): TeamRecommendation {
   const domain = bucketChallengeType(prompt);
+
+  if (onlyFreeTier) {
+    switch (domain) {
+      case 'Science & STEM':
+        return {
+          domain,
+          alphaModelId: 'deepseek-r1',
+          betaModelId: 'nemotron-3-30b',
+          reasoning: 'Top open-weights mathematical proof and empirical STEM alignment team (100% Free).',
+          isFreeTier: true,
+        };
+      case 'Logic & Strategy':
+        return {
+          domain,
+          alphaModelId: 'deepseek-r1',
+          betaModelId: 'qwen-2.5-72b',
+          reasoning: 'Peak deductive reasoning & mathematical logic open team (100% Free).',
+          isFreeTier: true,
+        };
+      case 'Coding & Tech':
+        return {
+          domain,
+          alphaModelId: 'qwen-2.5-72b',
+          betaModelId: 'deepseek-r1',
+          reasoning: 'Top open SWE-bench code architecture & algorithmic proof team (100% Free).',
+          isFreeTier: true,
+        };
+      case 'Humanities & Law':
+        return {
+          domain,
+          alphaModelId: 'llama-3.3-70b',
+          betaModelId: 'deepseek-v3',
+          reasoning: 'Open conversational breadth & qualitative instruction following team (100% Free).',
+          isFreeTier: true,
+        };
+      case 'General Reasoning':
+      default:
+        return {
+          domain,
+          alphaModelId: 'deepseek-r1',
+          betaModelId: 'qwen-2.5-72b',
+          reasoning: 'Top generalist open weights consensus efficiency team (100% Free).',
+          isFreeTier: true,
+        };
+    }
+  }
 
   switch (domain) {
     case 'Science & STEM':

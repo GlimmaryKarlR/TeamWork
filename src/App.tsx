@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LLMModel, CollaborationProtocol, DialogueTurn, FinalConsensus } from './types';
 import { SUPPORTED_MODELS, PRESET_TASKS } from './data/benchmarkData';
+import { recommendIdealTeamForTask } from './data/radarData';
 import { Header } from './components/Header';
 import { TeamingHeatmap } from './components/TeamingHeatmap';
 import { ModelSelector } from './components/ModelSelector';
@@ -18,9 +19,13 @@ export default function App() {
   const [betaModel, setBetaModel] = useState<LLMModel>(SUPPORTED_MODELS[1]);
   const [isHeatmapOpen, setIsHeatmapOpen] = useState(false);
 
+  // Workflow automation & Tier selection
+  const [autoSelectTeam, setAutoSelectTeam] = useState<boolean>(true);
+  const [tierFilter, setTierFilter] = useState<'all' | 'free'>('all');
+
   // Task & Protocol state
   const [prompt, setPrompt] = useState<string>(PRESET_TASKS[0].prompt);
-  const [protocol, setProtocol] = useState<CollaborationProtocol>('debate_synthesize');
+  const [protocol] = useState<CollaborationProtocol>('debate_synthesize');
   const [rounds, setRounds] = useState<number>(2);
 
   // Execution & dialogue state
@@ -30,12 +35,27 @@ export default function App() {
   const [finalConsensus, setFinalConsensus] = useState<FinalConsensus | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Automatically update the equipped team whenever prompt, tier, or auto-toggle changes
+  useEffect(() => {
+    if (autoSelectTeam && prompt.trim()) {
+      const rec = recommendIdealTeamForTask(prompt, tierFilter === 'free');
+      const a = SUPPORTED_MODELS.find((m) => m.id === rec.alphaModelId);
+      const b = SUPPORTED_MODELS.find((m) => m.id === rec.betaModelId);
+      if (a && b) {
+        setAlphaModel(a);
+        setBetaModel(b);
+      }
+    }
+  }, [prompt, tierFilter, autoSelectTeam]);
+
   const handleAlphaChange = (model: LLMModel) => {
     setAlphaModel(model);
+    setAutoSelectTeam(false); // User made explicit custom selection
   };
 
   const handleBetaChange = (model: LLMModel) => {
     setBetaModel(model);
+    setAutoSelectTeam(false); // User made explicit custom selection
   };
 
   const handleSelectPair = (alphaId: string, betaId: string) => {
@@ -43,6 +63,32 @@ export default function App() {
     const b = SUPPORTED_MODELS.find((m) => m.id === betaId);
     if (a) setAlphaModel(a);
     if (b) setBetaModel(b);
+  };
+
+  const handleToggleAutoSelect = (enabled: boolean) => {
+    setAutoSelectTeam(enabled);
+    if (enabled && prompt.trim()) {
+      const rec = recommendIdealTeamForTask(prompt, tierFilter === 'free');
+      const a = SUPPORTED_MODELS.find((m) => m.id === rec.alphaModelId);
+      const b = SUPPORTED_MODELS.find((m) => m.id === rec.betaModelId);
+      if (a && b) {
+        setAlphaModel(a);
+        setBetaModel(b);
+      }
+    }
+  };
+
+  const handleTierFilterChange = (tier: 'all' | 'free') => {
+    setTierFilter(tier);
+    if (tier === 'free') {
+      const freeModels = SUPPORTED_MODELS.filter((m) => m.isFree);
+      if (!alphaModel.isFree && freeModels[0]) {
+        setAlphaModel(freeModels[0]);
+      }
+      if (!betaModel.isFree && freeModels[1]) {
+        setBetaModel(freeModels[1]);
+      }
+    }
   };
 
   const handleRunMatchup = async () => {
@@ -116,7 +162,7 @@ export default function App() {
           </div>
         )}
 
-        {/* 1. Task Input (Positioned ABOVE the Models with Real-Time AI Team Analysis) */}
+        {/* 1. Task Input with Auto-Select Slider Toggle, Free Tier Filter, and Go Button */}
         <TaskInput
           prompt={prompt}
           onPromptChange={setPrompt}
@@ -127,6 +173,10 @@ export default function App() {
           loadingStep={loadingStep}
           currentAlphaId={alphaModel.id}
           currentBetaId={betaModel.id}
+          autoSelectTeam={autoSelectTeam}
+          onToggleAutoSelect={handleToggleAutoSelect}
+          tierFilter={tierFilter}
+          onTierFilterChange={handleTierFilterChange}
           onSelectTeam={handleSelectPair}
         />
 
@@ -134,6 +184,7 @@ export default function App() {
         <ModelSelector
           alphaModel={alphaModel}
           betaModel={betaModel}
+          tierFilter={tierFilter}
           onAlphaChange={handleAlphaChange}
           onBetaChange={handleBetaChange}
         />

@@ -11,6 +11,7 @@ export interface LLMModel {
   badgeBorder: string;
   efficiencyTier: 'S' | 'A' | 'B' | 'C';
   contextWindow: string;
+  isFree?: boolean;
 }
 
 export interface TeamPairBenchmark {
