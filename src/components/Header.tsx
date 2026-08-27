@@ -14,12 +14,12 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
         {/* Brand identity */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-            <Layers className="w-4 h-4" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-cyan-500 to-emerald-500 shadow-md shadow-blue-900/30 flex items-center justify-center text-white">
+            <Layers className="w-5 h-5" />
           </div>
-          <h1 className="text-base font-bold text-white tracking-tight">
-            TeamWork<span className="text-blue-400">Ai</span>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
+            TeamWork<span className="text-emerald-400">Ai</span>
           </h1>
         </div>
 

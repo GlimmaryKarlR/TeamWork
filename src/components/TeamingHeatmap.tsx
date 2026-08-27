@@ -47,11 +47,8 @@ export const TeamingHeatmap: React.FC<TeamingHeatmapProps> = ({
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-amber-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-              Multi-Agent Teaming Synergy Benchmarks
+              Multi-Agent Teaming Benchmarks
             </h2>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-800/40">
-              From graphic3.py dataset
-            </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Ranked by Consensus Efficiency Index = <code className="text-slate-300 font-mono">[(Accuracy ÷ (Time × Tokens)) × 10,000]</code>. Click any pair to equip.
@@ -78,7 +75,7 @@ export const TeamingHeatmap: React.FC<TeamingHeatmapProps> = ({
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            2D Synergy Heatmap
+            2D Efficiency Heatmap
           </button>
         </div>
       </div>
@@ -102,7 +99,7 @@ export const TeamingHeatmap: React.FC<TeamingHeatmapProps> = ({
                 {/* Highlight badge for #1 */}
                 {idx === 0 && (
                   <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-bl-lg flex items-center gap-1 shadow-sm">
-                    <Flame className="w-3 h-3 fill-slate-950" /> #1 PEAK SYNERGY
+                    <Flame className="w-3 h-3 fill-slate-950" /> #1 TOP EFFICIENCY
                   </div>
                 )}
 
@@ -133,7 +130,7 @@ export const TeamingHeatmap: React.FC<TeamingHeatmapProps> = ({
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 line-clamp-1">{benchmark.synergyLevel} Synergy Dynamic</span>
+                  <span className="text-slate-400 line-clamp-1">{benchmark.synergyLevel} Team Rating</span>
                   <span className="text-blue-400 font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                     {isCurrent ? 'Equipped' : 'Equip'} <ChevronRight className="w-3 h-3" />
                   </span>

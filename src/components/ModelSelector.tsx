@@ -22,6 +22,19 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 shadow-sm">
+      {/* Card Header */}
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800/80">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-blue-400" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            Team Proposed
+          </h2>
+        </div>
+        <span className="text-[11px] text-slate-400 font-mono">
+          Dual-Agent Configuration
+        </span>
+      </div>
+
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Agent Alpha Model Dropdown */}
         <div className="flex-1 w-full bg-slate-950 p-3 rounded-lg border border-slate-800 flex flex-col gap-1.5">

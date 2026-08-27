@@ -1,14 +1,11 @@
 import React, { useMemo } from 'react';
-import { CollaborationProtocol } from '../types';
-import { PRESET_TASKS, SUPPORTED_MODELS } from '../data/benchmarkData';
+import { SUPPORTED_MODELS } from '../data/benchmarkData';
 import { recommendIdealTeamForTask, TeamRecommendation } from '../data/radarData';
 import { Play, RefreshCw, Sparkles, Check } from 'lucide-react';
 
 interface TaskInputProps {
   prompt: string;
   onPromptChange: (val: string) => void;
-  protocol: CollaborationProtocol;
-  onProtocolChange: (proto: CollaborationProtocol) => void;
   rounds: number;
   onRoundsChange: (r: number) => void;
   isLoading: boolean;
@@ -22,8 +19,6 @@ interface TaskInputProps {
 export const TaskInput: React.FC<TaskInputProps> = ({
   prompt,
   onPromptChange,
-  protocol,
-  onProtocolChange,
   rounds,
   onRoundsChange,
   isLoading,
@@ -51,55 +46,64 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 mb-4 shadow-sm">
-      {/* Quick presets */}
-      <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1">
-        <span className="text-[11px] text-slate-400 shrink-0 font-medium">Presets:</span>
-        {PRESET_TASKS.map((preset) => (
-          <button
-            key={preset.id}
-            onClick={() => onPromptChange(preset.prompt)}
-            className="text-[11px] px-2 py-0.5 rounded bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 whitespace-nowrap transition-colors"
-          >
-            {preset.title.split(' ')[0]} {preset.title.split(' ')[1]}
-          </button>
-        ))}
+      {/* Header for Prompt Input */}
+      <div className="flex items-center justify-between mb-2">
+        <label htmlFor="custom-task-prompt-input" className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+          Enter Prompt Here
+        </label>
+        <span className="text-[11px] text-slate-400">
+          Type your task or problem statement
+        </span>
       </div>
 
       {/* Task input area */}
-      <div className="relative mb-2.5">
+      <div className="relative mb-3">
         <textarea
           id="custom-task-prompt-input"
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
-          placeholder="Enter task or question for the teamed models..."
+          placeholder="Enter task or challenge for the collaborative models..."
           rows={2}
           disabled={isLoading}
-          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all resize-y min-h-[70px]"
+          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all resize-y min-h-[72px]"
         />
       </div>
 
-      {/* AI Task Analysis & Ideal Team Recommendation Bar */}
-      {prompt.trim().length > 3 && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-slate-950/80 border border-blue-900/40 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="text-slate-400">AI Task Analysis:</span>
-            <span className="px-2 py-0.5 rounded bg-blue-950 text-blue-300 font-medium text-[11px] border border-blue-800/60">
+      {/* Controls row with AI Task Analysis & Ideal Team button right next to Collaborate button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        {/* Left: Rounds selection + Real-time Domain Tag + Equip Ideal Team Button */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Rounds */}
+          <select
+            id="rounds-select"
+            value={rounds}
+            onChange={(e) => onRoundsChange(Number(e.target.value))}
+            disabled={isLoading}
+            className="bg-slate-950 border border-slate-800 rounded-md px-2.5 py-1 text-xs text-slate-300 focus:outline-none cursor-pointer"
+          >
+            <option value={1}>1 Round</option>
+            <option value={2}>2 Rounds</option>
+            <option value={3}>3 Rounds</option>
+          </select>
+
+          {/* AI Task Analysis Domain Badge */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 text-xs">
+            <Sparkles className="w-3 h-3 text-blue-400 shrink-0" />
+            <span className="text-blue-300 font-medium text-[11px]">
               {recommendation.domain}
-            </span>
-            <span className="hidden md:inline text-slate-400">
-              Ideal Team: <strong className="text-white">{alphaRecommended?.name}</strong> + <strong className="text-white">{betaRecommended?.name}</strong>
             </span>
           </div>
 
+          {/* Equip Ideal Team Button */}
           <button
             id="btn-equip-ideal-team"
             onClick={handleEquipRecommended}
-            disabled={isCurrentTeamIdeal}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
+            disabled={isCurrentTeamIdeal || isLoading}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
               isCurrentTeamIdeal
                 ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800/50 cursor-default'
-                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:text-white cursor-pointer shadow-sm'
             }`}
           >
             {isCurrentTeamIdeal ? (
@@ -112,48 +116,16 @@ export const TaskInput: React.FC<TaskInputProps> = ({
             )}
           </button>
         </div>
-      )}
 
-      {/* Controls & Run Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2">
-          {/* Protocol */}
-          <select
-            id="protocol-select"
-            value={protocol}
-            onChange={(e) => onProtocolChange(e.target.value as CollaborationProtocol)}
-            disabled={isLoading}
-            className="bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-slate-300 focus:outline-none cursor-pointer"
-          >
-            <option value="debate_synthesize">Debate & Synthesize</option>
-            <option value="architect_auditor">Architect & Auditor</option>
-            <option value="lead_verifier">Lead & Verifier</option>
-            <option value="creative_refine">Creative & Refine</option>
-          </select>
-
-          {/* Rounds */}
-          <select
-            id="rounds-select"
-            value={rounds}
-            onChange={(e) => onRoundsChange(Number(e.target.value))}
-            disabled={isLoading}
-            className="bg-slate-950 border border-slate-800 rounded-md px-2 py-1 text-xs text-slate-300 focus:outline-none cursor-pointer"
-          >
-            <option value={1}>1 Round</option>
-            <option value={2}>2 Rounds</option>
-            <option value={3}>3 Rounds</option>
-          </select>
-        </div>
-
-        {/* Start Button */}
+        {/* Right: Go Button */}
         <button
           id="btn-run-team-collaboration"
           onClick={onRunMatchup}
           disabled={isLoading || !prompt.trim()}
-          className={`inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          className={`inline-flex items-center justify-center gap-1.5 px-5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
             isLoading || !prompt.trim()
               ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-500 text-white'
+              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-900/30'
           }`}
         >
           {isLoading ? (
@@ -164,7 +136,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
           ) : (
             <>
               <Play className="w-3.5 h-3.5 fill-white" />
-              <span>Collaborate</span>
+              <span>Go</span>
             </>
           )}
         </button>

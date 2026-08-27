@@ -120,8 +120,6 @@ export default function App() {
         <TaskInput
           prompt={prompt}
           onPromptChange={setPrompt}
-          protocol={protocol}
-          onProtocolChange={setProtocol}
           rounds={rounds}
           onRoundsChange={setRounds}
           isLoading={isLoading}

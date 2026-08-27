@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { DialogueTurn, FinalConsensus, LLMModel } from '../types';
-import { Copy, Check, MessageSquare } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 
 interface CommunicationBoxesProps {
   alphaModel: LLMModel;
@@ -27,18 +27,13 @@ export const CommunicationBoxes: React.FC<CommunicationBoxesProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // If no turns, no loading, and no consensus, render nothing (no empty placeholder card)
+  if (turns.length === 0 && !isLoading && !finalConsensus) {
+    return null;
+  }
+
   return (
     <div className="space-y-3">
-      {/* Empty State */}
-      {turns.length === 0 && !isLoading && !finalConsensus && (
-        <div className="border border-slate-800/80 rounded-xl p-8 text-center text-slate-400 bg-slate-900/40">
-          <MessageSquare className="w-5 h-5 mx-auto mb-2 text-slate-400" />
-          <p className="text-xs">
-            Select models and click <strong className="text-white">Collaborate</strong> to start the exchange.
-          </p>
-        </div>
-      )}
-
       {/* Loading state */}
       {isLoading && turns.length === 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-blue-300 animate-pulse flex items-center gap-2">
@@ -94,7 +89,7 @@ export const CommunicationBoxes: React.FC<CommunicationBoxesProps> = ({
             <button
               id="btn-copy-consensus-deliverable"
               onClick={handleCopy}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition-colors"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition-colors cursor-pointer"
             >
               {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
               <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -110,4 +105,3 @@ export const CommunicationBoxes: React.FC<CommunicationBoxesProps> = ({
     </div>
   );
 };
-
