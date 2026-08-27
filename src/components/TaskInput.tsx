@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { LLMModel } from '../types';
 import { SUPPORTED_MODELS } from '../data/benchmarkData';
 import { recommendIdealTeamForTask, TeamRecommendation } from '../data/radarData';
-import { Play, RefreshCw, Sparkles, Check, Gift, Layers, Sliders } from 'lucide-react';
+import { Play, RefreshCw, Sparkles, Gift } from 'lucide-react';
 
 interface TaskInputProps {
   prompt: string;
@@ -43,20 +43,6 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   const recommendation: TeamRecommendation = useMemo(() => {
     return recommendIdealTeamForTask(prompt, tierFilter === 'free');
   }, [prompt, tierFilter]);
-
-  const alphaRecommended = models.find((m) => m.id === recommendation.alphaModelId) || SUPPORTED_MODELS.find((m) => m.id === recommendation.alphaModelId);
-  const betaRecommended = models.find((m) => m.id === recommendation.betaModelId) || SUPPORTED_MODELS.find((m) => m.id === recommendation.betaModelId);
-
-  const isCurrentTeamIdeal =
-    (currentAlphaId === recommendation.alphaModelId && currentBetaId === recommendation.betaModelId) ||
-    (currentAlphaId === recommendation.betaModelId && currentBetaId === recommendation.alphaModelId);
-
-  const handleManualEquip = () => {
-    onSelectTeam(recommendation.alphaModelId, recommendation.betaModelId);
-    if (!autoSelectTeam) {
-      onToggleAutoSelect(true);
-    }
-  };
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4 shadow-sm">
@@ -118,7 +104,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
 
       {/* Controls row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-        {/* Left side: Rounds + Domain tag + Tier indicator */}
+        {/* Left side: Rounds + Domain tag */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Rounds */}
           <div className="flex items-center gap-1.5">
@@ -143,62 +129,33 @@ export const TaskInput: React.FC<TaskInputProps> = ({
               {recommendation.domain}
             </span>
           </div>
-
-          {tierFilter === 'free' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-800/40 text-[10px] text-emerald-300 font-medium">
-              100% Free Open Models
-            </span>
-          )}
         </div>
 
-        {/* Right side: Auto-select Slider Toggle and Ideal Team status + Go button */}
-        <div className="flex flex-col sm:flex-row sm:items-center items-end gap-3 shrink-0">
-          {/* Auto-select slider toggle and ideal team info */}
-          <div className="flex flex-col items-end gap-1">
-            {/* Slider Switch */}
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-300 font-medium select-none">
-                Auto-Select Ideal Team
-              </span>
-              <button
-                id="toggle-auto-select-team"
-                type="button"
-                role="switch"
-                aria-checked={autoSelectTeam}
-                onClick={() => onToggleAutoSelect(!autoSelectTeam)}
-                disabled={isLoading}
-                title={autoSelectTeam ? 'Auto-selection enabled. Click to disable for manual selection.' : 'Click to enable automatic ideal team selection.'}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  autoSelectTeam ? 'bg-blue-600' : 'bg-slate-700'
+        {/* Right side: Auto-select Slider Toggle + Go button */}
+        <div className="flex items-center gap-4 shrink-0">
+          {/* Auto-select switch */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-300 font-medium select-none">
+              Auto-Select Ideal Team
+            </span>
+            <button
+              id="toggle-auto-select-team"
+              type="button"
+              role="switch"
+              aria-checked={autoSelectTeam}
+              onClick={() => onToggleAutoSelect(!autoSelectTeam)}
+              disabled={isLoading}
+              title={autoSelectTeam ? 'Auto-selection enabled. Click to disable for manual selection.' : 'Click to enable automatic ideal team selection.'}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                autoSelectTeam ? 'bg-blue-600' : 'bg-slate-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  autoSelectTeam ? 'translate-x-4' : 'translate-x-0'
                 }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    autoSelectTeam ? 'translate-x-4' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Ideal Team Status Pill directly above Go */}
-            <div className="flex items-center gap-1.5">
-              {autoSelectTeam ? (
-                <div className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-mono">
-                  <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                  <span>
-                    Auto-Equipped: {alphaRecommended?.name.split(' ')[0]} + {betaRecommended?.name.split(' ')[0]}
-                  </span>
-                </div>
-              ) : (
-                <button
-                  onClick={handleManualEquip}
-                  type="button"
-                  className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-blue-300 underline cursor-pointer"
-                >
-                  <span>Manual Mode (Click to equip ideal team)</span>
-                </button>
-              )}
-            </div>
+              />
+            </button>
           </div>
 
           {/* Go Button */}

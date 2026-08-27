@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
               TeamWork<span className="text-emerald-400">Ai</span>
             </h1>
             <span className="text-[10px] text-slate-400 font-mono">
-              OpenRouter & Multi-LLM Teaming
+              Multi-LLM Teaming
             </span>
           </div>
         </div>

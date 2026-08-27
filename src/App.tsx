@@ -393,7 +393,7 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
           <span className="font-semibold text-slate-400">TeamWorkAi</span>
           <span className="text-[11px] text-slate-500">
-            OpenRouter Catalog ({models.length} Models • {freeModelCount} Free)
+            Multi-LLM Teaming ({models.length} Models • {freeModelCount} Free)
           </span>
         </div>
       </footer>
