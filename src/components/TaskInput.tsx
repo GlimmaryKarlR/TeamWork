@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { LLMModel } from '../types';
 import { SUPPORTED_MODELS } from '../data/benchmarkData';
 import { recommendIdealTeamForTask, TeamRecommendation } from '../data/radarData';
 import { Play, RefreshCw, Sparkles, Check, Gift, Layers, Sliders } from 'lucide-react';
@@ -13,6 +14,7 @@ interface TaskInputProps {
   loadingStep: string;
   currentAlphaId: string;
   currentBetaId: string;
+  models?: LLMModel[];
   autoSelectTeam: boolean;
   onToggleAutoSelect: (enabled: boolean) => void;
   tierFilter: 'all' | 'free';
@@ -30,6 +32,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
   loadingStep,
   currentAlphaId,
   currentBetaId,
+  models = SUPPORTED_MODELS,
   autoSelectTeam,
   onToggleAutoSelect,
   tierFilter,
@@ -41,8 +44,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     return recommendIdealTeamForTask(prompt, tierFilter === 'free');
   }, [prompt, tierFilter]);
 
-  const alphaRecommended = SUPPORTED_MODELS.find((m) => m.id === recommendation.alphaModelId);
-  const betaRecommended = SUPPORTED_MODELS.find((m) => m.id === recommendation.betaModelId);
+  const alphaRecommended = models.find((m) => m.id === recommendation.alphaModelId) || SUPPORTED_MODELS.find((m) => m.id === recommendation.alphaModelId);
+  const betaRecommended = models.find((m) => m.id === recommendation.betaModelId) || SUPPORTED_MODELS.find((m) => m.id === recommendation.betaModelId);
 
   const isCurrentTeamIdeal =
     (currentAlphaId === recommendation.alphaModelId && currentBetaId === recommendation.betaModelId) ||

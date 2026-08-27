@@ -100,14 +100,14 @@ function normalizeModelToId(nameOrBrand?: string): string {
   if (!nameOrBrand) return 'gemini-3.7-flash';
   const s = nameOrBrand.toLowerCase();
   if (s.includes('gemini') || s.includes('google')) return 'gemini-3.7-flash';
-  if (s.includes('claude') || s.includes('anthropic') || s.includes('haiku') || s.includes('sonnet')) return 'claude-3-7-sonnet';
-  if (s.includes('gpt') || s.includes('openai') || s.includes('o3')) return 'gpt-4o';
-  if (s.includes('deepseek-r1') || s.includes('r1')) return 'deepseek-r1';
+  if (s.includes('claude') || s.includes('anthropic') || s.includes('haiku') || s.includes('sonnet') || s.includes('opus')) return 'claude-3-7-sonnet';
+  if (s.includes('gpt') || s.includes('openai') || s.includes('o1') || s.includes('o3')) return 'gpt-4o';
+  if (s.includes('deepseek-r1') || s.includes('r1') || s.includes('reasoner')) return 'deepseek-r1';
   if (s.includes('deepseek')) return 'deepseek-v3';
   if (s.includes('qwen') || s.includes('qwq') || s.includes('alibaba')) return 'qwen-2.5-72b';
   if (s.includes('llama') || s.includes('meta')) return 'llama-3.3-70b';
   if (s.includes('nemotron') || s.includes('nvidia')) return 'nemotron-3-nano';
-  if (s.includes('mistral')) return 'mistral-large-2';
+  if (s.includes('mistral') || s.includes('codestral') || s.includes('mixtral')) return 'mistral-large-2';
   return 'gemini-3.7-flash';
 }
 
