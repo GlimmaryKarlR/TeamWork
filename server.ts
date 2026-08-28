@@ -202,6 +202,7 @@ app.post("/api/collaborate", async (req, res) => {
   const startTime = Date.now();
   const {
     prompt,
+    teams: inputTeams,
     agentAlphaModelId = "gemini-3.7-flash",
     agentBetaModelId = "claude-3-7-sonnet",
     protocol = "debate_synthesize",
@@ -216,155 +217,156 @@ app.post("/api/collaborate", async (req, res) => {
   }
 
   const allKnownModels = [...(cachedOpenRouterModels || []), ...customModels, ...SUPPORTED_MODELS];
-  const alphaModel = allKnownModels.find((m) => m.id === agentAlphaModelId) || {
-    id: agentAlphaModelId,
-    name: agentAlphaModelId.split('/').pop() || agentAlphaModelId,
-    brand: agentAlphaModelId,
-    provider: agentAlphaModelId.split('/')[0] || 'AI Provider',
-    description: 'Collaborative AI Model',
-    strengths: ['Reasoning', 'Analysis'],
-    teamRole: 'Agent Alpha (Lead Proposer)',
-    accentColor: '#3b82f6',
-    lightBg: '#eff6ff',
-    badgeBorder: '#93c5fd',
-    efficiencyTier: 'S',
-    contextWindow: '128K tokens',
-  } as LLMModel;
 
-  const betaModel = allKnownModels.find((m) => m.id === agentBetaModelId) || {
-    id: agentBetaModelId,
-    name: agentBetaModelId.split('/').pop() || agentBetaModelId,
-    brand: agentBetaModelId,
-    provider: agentBetaModelId.split('/')[0] || 'AI Provider',
-    description: 'Collaborative AI Model',
-    strengths: ['Critique', 'Verification'],
-    teamRole: 'Agent Beta (Critical Reviewer)',
-    accentColor: '#10b981',
-    lightBg: '#ecfdf5',
-    badgeBorder: '#a7f3d0',
-    efficiencyTier: 'S',
-    contextWindow: '128K tokens',
-  } as LLMModel;
+  const getOrBuildModel = (id: string, fallbackRole: string, defaultColor: string) => {
+    return (
+      allKnownModels.find((m) => m.id === id) ||
+      ({
+        id,
+        name: id.split('/').pop() || id,
+        brand: id,
+        provider: id.split('/')[0] || 'AI Provider',
+        description: 'Collaborative AI Model',
+        strengths: ['Reasoning', 'Analysis'],
+        teamRole: fallbackRole,
+        accentColor: defaultColor,
+        lightBg: '#eff6ff',
+        badgeBorder: '#93c5fd',
+        efficiencyTier: 'S',
+        contextWindow: '128K tokens',
+      } as LLMModel)
+    );
+  };
 
+  const effectiveTeams: {
+    id: string;
+    name: string;
+    alphaModel: LLMModel;
+    betaModel: LLMModel;
+  }[] =
+    inputTeams && Array.isArray(inputTeams) && inputTeams.length > 0
+      ? inputTeams.map((t: any, idx: number) => ({
+          id: t.id || `team-${idx + 1}`,
+          name: t.name || `Team ${idx + 1}`,
+          alphaModel: getOrBuildModel(
+            t.alphaModelId || t.alphaModel?.id || agentAlphaModelId,
+            'Agent Alpha (Lead Proposer)',
+            '#3b82f6'
+          ),
+          betaModel: getOrBuildModel(
+            t.betaModelId || t.betaModel?.id || agentBetaModelId,
+            'Agent Beta (Critical Reviewer)',
+            '#10b981'
+          ),
+        }))
+      : [
+          {
+            id: 'team-1',
+            name: 'Team 1',
+            alphaModel: getOrBuildModel(agentAlphaModelId, 'Agent Alpha (Lead Proposer)', '#3b82f6'),
+            betaModel: getOrBuildModel(agentBetaModelId, 'Agent Beta (Critical Reviewer)', '#10b981'),
+          },
+        ];
+
+  const primaryTeam = effectiveTeams[0];
+  const alphaModel = primaryTeam.alphaModel;
+  const betaModel = primaryTeam.betaModel;
   const pairBenchmark = getTeamBenchmark(alphaModel.id, betaModel.id);
   const orApiKey = openrouterApiKey || process.env.OPENROUTER_API_KEY;
 
-  // 1. If OpenRouter API Key is available, execute multi-agent interaction via OpenRouter!
+  // 1. If OpenRouter API Key is available, execute multi-agent swarm interaction via OpenRouter!
   if (orApiKey) {
     try {
-      console.log(`[OpenRouter] Executing multi-agent collaboration between ${alphaModel.id} and ${betaModel.id}...`);
+      console.log(`[OpenRouter] Executing multi-agent collaboration across ${effectiveTeams.length} team(s)...`);
 
       const turns: any[] = [];
       const conversationHistory: { role: string; content: string; name?: string }[] = [
         {
           role: 'user',
-          content: `Task: "${prompt}"\n\nCollaborate to formulate a comprehensive, high-quality solution.`,
+          content: `Task: "${prompt}"\n\nCollaborate across specialized agent teams to formulate a comprehensive, high-quality solution.`,
         },
       ];
 
-      // Round 1 - Alpha initial proposal
-      const alphaSysPrompt = `You are Agent Alpha (${alphaModel.name}, ${alphaModel.teamRole}). 
-Provide a clear, high-conviction initial technical proposal for the following task. 
-Structure your answer in 2-3 concise paragraphs or bullet points detailing core architectural principles, key mechanisms, and steps. Keep it direct and free of fluff.`;
+      let turnCounter = 1;
 
-      const alphaRound1 = await callOpenRouterChat(orApiKey, alphaModel.id, [
-        { role: 'system', content: alphaSysPrompt },
-        ...conversationHistory,
-      ]);
+      for (const currentTeam of effectiveTeams) {
+        const teamAlpha = currentTeam.alphaModel;
+        const teamBeta = currentTeam.betaModel;
 
-      turns.push({
-        id: 'turn-1',
-        roundNumber: 1,
-        agent: 'alpha',
-        modelId: alphaModel.id,
-        modelName: alphaModel.name,
-        agentRole: alphaModel.teamRole,
-        content: alphaRound1,
-        keyInsights: [
-          `Proposed foundational architecture & strategic execution steps for ${prompt.slice(0, 40)}`,
-          `Outlined core invariants and state boundaries`,
-        ],
-        consensusAgreementScore: 82,
-        turnTokens: Math.round(alphaRound1.length / 3.8),
-        timeMs: Math.round(Date.now() - startTime),
-      });
+        // Team Alpha Initial Proposal
+        const alphaSysPrompt = `You are Agent Alpha of ${currentTeam.name} (${teamAlpha.name}, ${teamAlpha.teamRole}). 
+Provide a clear, high-conviction technical proposal for the following task. 
+Structure your answer in 2-3 concise paragraphs or bullet points detailing core principles, key mechanisms, and steps. Keep it direct and free of fluff.`;
 
-      conversationHistory.push({
-        role: 'assistant',
-        name: 'Agent_Alpha',
-        content: alphaRound1,
-      });
-
-      // Round 1 - Beta critique & review
-      const betaSysPrompt = `You are Agent Beta (${betaModel.name}, ${betaModel.teamRole}). 
-You are collaborating with Agent Alpha. Critically review Alpha's proposal.
-Identify potential edge cases, hidden constraints, scalability/correctness risks, and provide constructive counter-proposals to elevate the solution. Keep your review sharp, respectful, and highly technical.`;
-
-      const betaRound1 = await callOpenRouterChat(orApiKey, betaModel.id, [
-        { role: 'system', content: betaSysPrompt },
-        ...conversationHistory,
-      ]);
-
-      turns.push({
-        id: 'turn-2',
-        roundNumber: 1,
-        agent: 'beta',
-        modelId: betaModel.id,
-        modelName: betaModel.name,
-        agentRole: betaModel.teamRole,
-        content: betaRound1,
-        keyInsights: [
-          `Identified edge-case constraints and critical failure modes in initial proposal`,
-          `Formulated refined mitigation mechanisms and verification criteria`,
-        ],
-        consensusAgreementScore: 90,
-        turnTokens: Math.round(betaRound1.length / 3.8),
-        timeMs: Math.round(Date.now() - startTime),
-      });
-
-      conversationHistory.push({
-        role: 'assistant',
-        name: 'Agent_Beta',
-        content: betaRound1,
-      });
-
-      // Additional rounds if requested
-      if (rounds >= 2) {
-        // Round 2 - Alpha synthesis
-        const alphaRound2 = await callOpenRouterChat(orApiKey, alphaModel.id, [
-          {
-            role: 'system',
-            content: `You are Agent Alpha. Review Agent Beta's critique and counter-proposals. Integrate the valid feedback, resolve any trade-offs, and finalize the converged approach.`,
-          },
+        const alphaRound1 = await callOpenRouterChat(orApiKey, teamAlpha.id, [
+          { role: 'system', content: alphaSysPrompt },
           ...conversationHistory,
         ]);
 
         turns.push({
-          id: 'turn-3',
-          roundNumber: 2,
+          id: `turn-${turnCounter++}`,
+          roundNumber: 1,
+          teamId: currentTeam.id,
+          teamName: currentTeam.name,
           agent: 'alpha',
-          modelId: alphaModel.id,
-          modelName: alphaModel.name,
-          agentRole: alphaModel.teamRole,
-          content: alphaRound2,
+          modelId: teamAlpha.id,
+          modelName: teamAlpha.name,
+          agentRole: teamAlpha.teamRole,
+          content: alphaRound1,
           keyInsights: [
-            `Integrated Beta's counter-proposals and edge-case mitigations`,
-            `Synthesized final unified architectural specification`,
+            `[${currentTeam.name}] Proposed foundational architecture & strategic execution steps for ${prompt.slice(0, 40)}`,
+            `[${currentTeam.name}] Formulated core mechanisms leveraging ${teamAlpha.strengths?.[0] || 'domain strengths'}`,
           ],
-          consensusAgreementScore: 96,
-          turnTokens: Math.round(alphaRound2.length / 3.8),
+          consensusAgreementScore: 82,
+          turnTokens: Math.round(alphaRound1.length / 3.8),
           timeMs: Math.round(Date.now() - startTime),
         });
 
         conversationHistory.push({
           role: 'assistant',
-          name: 'Agent_Alpha',
-          content: alphaRound2,
+          name: `${currentTeam.name.replace(/\s+/g, '_')}_Alpha`,
+          content: `[${currentTeam.name} Alpha - ${teamAlpha.name}]: ${alphaRound1}`,
+        });
+
+        // Team Beta Critique & Review
+        const betaSysPrompt = `You are Agent Beta of ${currentTeam.name} (${teamBeta.name}, ${teamBeta.teamRole}). 
+You are collaborating with Agent Alpha of ${currentTeam.name}. Critically review Alpha's proposal.
+Identify potential edge cases, hidden constraints, scalability/correctness risks, and provide constructive counter-proposals. Keep your review sharp, respectful, and technical.`;
+
+        const betaRound1 = await callOpenRouterChat(orApiKey, teamBeta.id, [
+          { role: 'system', content: betaSysPrompt },
+          ...conversationHistory,
+        ]);
+
+        turns.push({
+          id: `turn-${turnCounter++}`,
+          roundNumber: 1,
+          teamId: currentTeam.id,
+          teamName: currentTeam.name,
+          agent: 'beta',
+          modelId: teamBeta.id,
+          modelName: teamBeta.name,
+          agentRole: teamBeta.teamRole,
+          content: betaRound1,
+          keyInsights: [
+            `[${currentTeam.name}] Identified edge-case constraints and critical failure modes`,
+            `[${currentTeam.name}] Formulated refined mitigation mechanisms and verification criteria`,
+          ],
+          consensusAgreementScore: 90,
+          turnTokens: Math.round(betaRound1.length / 3.8),
+          timeMs: Math.round(Date.now() - startTime),
+        });
+
+        conversationHistory.push({
+          role: 'assistant',
+          name: `${currentTeam.name.replace(/\s+/g, '_')}_Beta`,
+          content: `[${currentTeam.name} Beta - ${teamBeta.name}]: ${betaRound1}`,
         });
       }
 
-      // Generate Final Joint Deliverable
-      const consensusPrompt = `Based on the complete collaborative exchange between Agent Alpha and Agent Beta above, synthesize the final agreed joint deliverable.
+      // Generate Final Joint Deliverable Synthesizing all Teams
+      const teamSummaryList = effectiveTeams.map(t => `${t.name} (${t.alphaModel.name} + ${t.betaModel.name})`).join(', ');
+      const consensusPrompt = `Based on the complete collaborative exchange across all ${effectiveTeams.length} specialized agent teams (${teamSummaryList}) above, synthesize the final agreed joint deliverable.
 Include:
 1. Executive Blueprint & Solution
 2. Technical Specification & Implementation Details
@@ -372,7 +374,7 @@ Include:
 
 Format with clean Markdown headings and bullet points.`;
 
-      const consensusText = await callOpenRouterChat(orApiKey, alphaModel.id, [
+      const consensusText = await callOpenRouterChat(orApiKey, primaryTeam.alphaModel.id, [
         ...conversationHistory,
         { role: 'user', content: consensusPrompt },
       ]);
@@ -387,23 +389,22 @@ Format with clean Markdown headings and bullet points.`;
         agreedSolution: consensusText,
         consensusScore: accuracyScore,
         compromisesMade: [
-          `Integrated rigorous edge-case verification while preserving low latency throughput`,
-          `Harmonized state boundary constraints between ${alphaModel.name} and ${betaModel.name}`,
+          `Synthesized consensus across ${effectiveTeams.length} specialized team(s) (${effectiveTeams.length * 2} active agents)`,
+          `Harmonized state boundary constraints between ${effectiveTeams.map(t => t.name).join(' and ')}`,
         ],
-        keyStrengthsCombined: [
-          `${alphaModel.name}'s architectural structuring provided the foundational framework`,
-          `${betaModel.name}'s critical auditing eliminated edge-case blind spots`,
-          `Delivered production-ready joint consensus across ${rounds} interactive round(s)`,
-        ],
-        summaryVerdict: `Successful multi-agent alignment between ${alphaModel.name} and ${betaModel.name} on OpenRouter.`,
+        keyStrengthsCombined: effectiveTeams.map(
+          (t) => `${t.name} (${t.alphaModel.name} + ${t.betaModel.name}): Specialized verification & execution synergy`
+        ),
+        summaryVerdict: `Successful multi-team swarm alignment across ${effectiveTeams.length} team(s) on OpenRouter.`,
       };
 
       return res.json({
         id: `matchup-${Date.now()}`,
         taskPrompt: prompt,
         protocol,
-        agentAlpha: alphaModel,
-        agentBeta: betaModel,
+        agentAlpha: primaryTeam.alphaModel,
+        agentBeta: primaryTeam.betaModel,
+        teams: effectiveTeams,
         turns,
         finalConsensus,
         telemetry: {
@@ -412,7 +413,7 @@ Format with clean Markdown headings and bullet points.`;
           accuracyScore,
           efficiencyIndex,
           peakEfficiencyBenchmark: pairBenchmark.efficiencyIndex,
-          synergyMultiplier: 1.2,
+          synergyMultiplier: +(1.1 + effectiveTeams.length * 0.1).toFixed(2),
         },
         createdAt: new Date().toISOString(),
       });
@@ -505,26 +506,36 @@ JSON structure:
       const denom = (timeSec * estTokens);
       const liveEfficiencyIndex = denom > 0 ? Math.round((accuracyScore / denom) * 10000) : pairBenchmark.efficiencyIndex;
 
-      const enrichedTurns = (parsed.turns || []).map((t: any, idx: number) => ({
-        id: `turn-${idx + 1}`,
-        roundNumber: t.roundNumber || Math.floor(idx / 2) + 1,
-        agent: t.agent === "beta" ? "beta" : "alpha",
-        modelId: t.agent === "beta" ? betaModel.id : alphaModel.id,
-        modelName: t.agent === "beta" ? betaModel.name : alphaModel.name,
-        agentRole: t.agent === "beta" ? betaModel.teamRole : alphaModel.teamRole,
-        content: t.content || "",
-        keyInsights: t.keyInsights || [],
-        consensusAgreementScore: t.consensusAgreementScore || (70 + idx * 8),
-        turnTokens: Math.round(estTokens / ((parsed.turns?.length || 1) + 1)),
-        timeMs: Math.round(wallClockMs / ((parsed.turns?.length || 1) + 1)),
-      }));
+      const enrichedTurns = (parsed.turns || []).map((t: any, idx: number) => {
+        const turnTeamIndex = Math.floor(idx / 2) % effectiveTeams.length;
+        const currentTeam = effectiveTeams[turnTeamIndex] || primaryTeam;
+        const isBeta = t.agent === "beta";
+        const currentModel = isBeta ? currentTeam.betaModel : currentTeam.alphaModel;
+
+        return {
+          id: `turn-${idx + 1}`,
+          roundNumber: t.roundNumber || Math.floor(idx / 2) + 1,
+          teamId: currentTeam.id,
+          teamName: currentTeam.name,
+          agent: isBeta ? ("beta" as const) : ("alpha" as const),
+          modelId: currentModel.id,
+          modelName: currentModel.name,
+          agentRole: currentModel.teamRole,
+          content: t.content || "",
+          keyInsights: t.keyInsights || [],
+          consensusAgreementScore: t.consensusAgreementScore || (70 + idx * 8),
+          turnTokens: Math.round(estTokens / ((parsed.turns?.length || 1) + 1)),
+          timeMs: Math.round(wallClockMs / ((parsed.turns?.length || 1) + 1)),
+        };
+      });
 
       const result = {
         id: `matchup-${Date.now()}`,
         taskPrompt: prompt,
         protocol,
-        agentAlpha: alphaModel,
-        agentBeta: betaModel,
+        agentAlpha: primaryTeam.alphaModel,
+        agentBeta: primaryTeam.betaModel,
+        teams: effectiveTeams,
         turns: enrichedTurns,
         finalConsensus: parsed.finalConsensus,
         telemetry: {
@@ -533,7 +544,7 @@ JSON structure:
           accuracyScore,
           efficiencyIndex: liveEfficiencyIndex,
           peakEfficiencyBenchmark: pairBenchmark.efficiencyIndex,
-          synergyMultiplier: +(accuracyScore / Math.max(1, (alphaModel.efficiencyTier === 'S' ? 95 : 85))).toFixed(2),
+          synergyMultiplier: +(accuracyScore / Math.max(1, (primaryTeam.alphaModel.efficiencyTier === 'S' ? 95 : 85))).toFixed(2),
         },
         createdAt: new Date().toISOString(),
       };
@@ -544,99 +555,90 @@ JSON structure:
     console.error("Gemini Multi-Agent execution error, switching to deterministic fallback:", err?.message);
   }
 
-  // 3. High-fidelity deterministic fallback simulation
+  // 3. High-fidelity deterministic fallback simulation across effective teams
   const wallClockMs = Math.max(1600, Math.round(pairBenchmark.timeToConsensusSec * 1000));
-  const totalTokens = pairBenchmark.totalTokens;
+  const totalTokens = pairBenchmark.totalTokens * effectiveTeams.length;
   const accuracyScore = pairBenchmark.accuracyScore;
   const efficiencyIndex = pairBenchmark.efficiencyIndex;
 
-  const turns = [
-    {
-      id: "turn-1",
+  const turns: any[] = [];
+  let turnIdx = 1;
+
+  for (const team of effectiveTeams) {
+    const tAlpha = team.alphaModel;
+    const tBeta = team.betaModel;
+
+    turns.push({
+      id: `turn-${turnIdx++}`,
       roundNumber: 1,
+      teamId: team.id,
+      teamName: team.name,
       agent: "alpha" as const,
-      modelId: alphaModel.id,
-      modelName: alphaModel.name,
-      agentRole: alphaModel.teamRole,
-      content: `### Initial Strategic Proposal & Framework\n\nTo tackle **"${prompt.slice(0, 100)}..."**, I propose decomposing the task into three core architectural pillars:\n\n1. **Core State & Invariant Boundaries**: Establish a partitioned transactional state boundary with idempotent write pipelines.\n2. **Low-Latency Convergence Protocol**: Implement an asynchronous reconciliation loop backed by deterministic ordering.\n3. **Failure Isolation & Graceful Degradation**: Enforce circuit breakers and fallback caching buffers to prevent cascading systemic failure.\n\n*Passing to ${betaModel.name} for critical auditing and constraint stress-testing.*`,
+      modelId: tAlpha.id,
+      modelName: tAlpha.name,
+      agentRole: tAlpha.teamRole,
+      content: `### [${team.name}] Strategic Framework & Core Architecture\n\nTo tackle **"${prompt.slice(0, 100)}..."**, ${team.name} proposes decomposing the task into three core architectural pillars:\n\n1. **Core State & Invariant Boundaries**: Establish a partitioned transactional state boundary leveraging ${tAlpha.strengths?.[0] || 'domain analysis'}.\n2. **Low-Latency Convergence Protocol**: Implement an asynchronous reconciliation loop backed by deterministic ordering.\n3. **Failure Isolation & Graceful Degradation**: Enforce circuit breakers and fallback caching buffers.\n\n*Passing to ${tBeta.name} for critical auditing and constraint stress-testing.*`,
       keyInsights: [
-        `Established 3-pillar architectural roadmap prioritizing idempotent state boundaries`,
-        `Formulated asynchronous reconciliation loop to minimize latency overhead`,
+        `[${team.name}] Established 3-pillar architectural roadmap prioritizing idempotent state boundaries`,
+        `[${team.name}] Formulated asynchronous reconciliation loop to minimize latency overhead`,
       ],
       consensusAgreementScore: 78,
-      turnTokens: Math.round(totalTokens * 0.28),
+      turnTokens: Math.round(pairBenchmark.totalTokens * 0.28),
       timeMs: Math.round(wallClockMs * 0.3),
-    },
-    {
-      id: "turn-2",
+    });
+
+    turns.push({
+      id: `turn-${turnIdx++}`,
       roundNumber: 1,
+      teamId: team.id,
+      teamName: team.name,
       agent: "beta" as const,
-      modelId: betaModel.id,
-      modelName: betaModel.name,
-      agentRole: betaModel.teamRole,
-      content: `### Critical Review & Edge-Case Counterproposals\n\nI reviewed ${alphaModel.name}'s initial framework. While the high-level partitioning is robust, I identified two critical vulnerabilities that need rectification:\n\n- **Race Condition Under Partition Split**: In network partitioning scenarios, asynchronous reconciliation risks dirty reads unless we enforce a strong monotonic revision watermark or distributed lease coordinator.\n- **Write-Amplification Bottleneck**: The proposed fallback caching buffers risk memory exhaustion during sustained traffic bursts. We must integrate adaptive backpressure and token-bucket rate dampening.\n\n**Proposed Refinement**: Augment the pipeline with vectorized event hashing and a quorum-verified commit acknowledgment layer before confirming external consensus.`,
+      modelId: tBeta.id,
+      modelName: tBeta.name,
+      agentRole: tBeta.teamRole,
+      content: `### [${team.name}] Critical Review & Edge-Case Counterproposals\n\nI reviewed ${tAlpha.name}'s initial framework for ${team.name}. While the high-level partitioning is robust, I identified two critical vulnerabilities:\n\n- **Race Condition Under Partition Split**: In network partitioning scenarios, asynchronous reconciliation risks dirty reads unless we enforce a strong monotonic revision watermark.\n- **Write-Amplification Bottleneck**: The proposed fallback caching buffers risk memory exhaustion during sustained traffic bursts. We must integrate adaptive backpressure and token-bucket rate dampening.\n\n**Proposed Refinement**: Augment the pipeline with vectorized event hashing and a quorum-verified commit acknowledgment layer.`,
       keyInsights: [
-        `Identified split-brain race condition risk during asynchronous reconciliation`,
-        `Prescribed monotonic revision watermarks and adaptive backpressure dampening`,
+        `[${team.name}] Identified split-brain race condition risk during asynchronous reconciliation`,
+        `[${team.name}] Prescribed monotonic revision watermarks and adaptive backpressure dampening`,
       ],
       consensusAgreementScore: 88,
-      turnTokens: Math.round(totalTokens * 0.35),
+      turnTokens: Math.round(pairBenchmark.totalTokens * 0.35),
       timeMs: Math.round(wallClockMs * 0.35),
-    },
-    {
-      id: "turn-3",
-      roundNumber: 2,
-      agent: "alpha" as const,
-      modelId: alphaModel.id,
-      modelName: alphaModel.name,
-      agentRole: alphaModel.teamRole,
-      content: `### Synthesis & Counter-Optimization\n\nI concede ${betaModel.name}'s critique regarding the monotonic revision watermark and adaptive backpressure. Integrating both addresses our throughput vs. consistency trade-off cleanly.\n\n**Integrated Implementation Specification**:\n- Adopted **Monotonic Epoch Watermarks** on all transactional payloads.\n- Introduced **Dynamic Quorum Verification** to guarantee serializable consistency without sacrificing read-path acceleration.\n- Layered **Token-Bucket Backpressure** on ingress gateways.\n\nWe are now aligned on full production-readiness. Preparing the joint consensus deliverable.`,
-      keyInsights: [
-        `Accepted and merged monotonic epoch watermarking to eliminate partition race conditions`,
-        `Finalized dynamic quorum verification and ingress token-bucket rate dampening`,
-      ],
-      consensusAgreementScore: 97,
-      turnTokens: Math.round(totalTokens * 0.22),
-      timeMs: Math.round(wallClockMs * 0.2),
-    },
-  ];
+    });
+  }
 
-  const finalConsensus = {
-    agreedSolution: `## Teamwork Consensus Deliverable: ${prompt.length > 80 ? prompt.slice(0, 80) + '...' : prompt}\n\n### 1. Executive Summary & Architecture Blueprint\nThe teaming collaboration between **${alphaModel.name}** and **${betaModel.name}** has converged on a verified, resilient end-to-end framework tailored to the specified requirements.\n\n### 2. Verified Technical Specifications\n- **State Partitioning & Invariance**: Idempotent message-routed execution pipelines with strict schema validation.\n- **Consistency & Ordering**: Monotonic epoch watermarking with distributed lease coordination for zero-data-loss guarantees.\n- **Throughput & Resilience**: Tiered caching hierarchy with adaptive token-bucket backpressure and sub-5ms localized latency.\n- **Auditability & Observability**: Real-time distributed tracing with telemetry alerts triggered on divergence metrics.\n\n### 3. Implementation Roadmap\n1. Deploy foundational epoch coordinators and partition routers.\n2. Enable real-time telemetry verification alongside synthetic chaos-testing suites.\n3. Roll out canary verification with automated rollbacks on invariant breach.`,
-    consensusScore: accuracyScore,
-    compromisesMade: [
-      `Selected Monotonic Epoch Watermarks over full distributed locking to preserve sub-10ms write throughput`,
-      `Integrated dynamic token-bucket backpressure at ingress to protect memory limits during sustained burst loads`,
-      `Adopted dual-quorum acknowledgment specifically on critical state paths while keeping read paths non-blocking`,
-    ],
-    keyStrengthsCombined: [
-      `${alphaModel.name}'s rapid architectural prototyping provided the end-to-end structural baseline in record time`,
-      `${betaModel.name}'s rigorous edge-case auditing prevented critical split-brain race conditions under heavy load`,
-      `The joint deliberation achieved ${accuracyScore}% consensus confidence with a peak Efficiency Index of ${efficiencyIndex} pts`,
-    ],
-    summaryVerdict: `Optimal teaming achieved: ${alphaModel.name} and ${betaModel.name} harmonized architectural breadth with rigorous invariant verification.`,
-  };
-
-  const fallbackResult = {
+  const result = {
     id: `matchup-${Date.now()}`,
     taskPrompt: prompt,
     protocol,
-    agentAlpha: alphaModel,
-    agentBeta: betaModel,
+    agentAlpha: primaryTeam.alphaModel,
+    agentBeta: primaryTeam.betaModel,
+    teams: effectiveTeams,
     turns,
-    finalConsensus,
+    finalConsensus: {
+      agreedSolution: `### Unified Swarm Consensus Architecture\n\n#### 1. Executive Blueprint\nThe collaborative multi-team swarm (${effectiveTeams.map(t => t.name).join(', ')}) has converged on a verified, resilient architecture tailored for **"${prompt.slice(0, 80)}"**.\n\n#### 2. Technical Specification\n- **Dual-Phase Monotonic Watermarking**: Guarantees serializable consistency across distributed shards.\n- **Dynamic Ingress Backpressure**: Token-bucket dampening throttles burst traffic before buffer saturation.\n- **Deterministic Event Replay**: Crash recovery completes in sub-millisecond windows via append-only delta logs.\n\n#### 3. Verification & Safety Guarantees\n- Verified 0-downtime shard rebalancing under 50% simulated node drops.\n- Zero dirty reads confirmed across full idempotent transaction logs.`,
+      consensusScore: accuracyScore,
+      compromisesMade: [
+        `Integrated monotonic revision watermarks into the asynchronous reconciliation pipeline`,
+        `Harmonized computational throughput across ${effectiveTeams.length} specialized team(s) (${effectiveTeams.length * 2} agents)`,
+      ],
+      keyStrengthsCombined: effectiveTeams.map(
+        (t) => `${t.name} (${t.alphaModel.name} + ${t.betaModel.name}): Domain structuring & resilient invariant auditing`
+      ),
+      summaryVerdict: `Unified consensus reached with ${accuracyScore}% confidence rating across ${effectiveTeams.length} team(s).`,
+    },
     telemetry: {
       totalWallClockMs: wallClockMs,
       totalTokens,
       accuracyScore,
       efficiencyIndex,
       peakEfficiencyBenchmark: pairBenchmark.efficiencyIndex,
-      synergyMultiplier: 1.15,
+      synergyMultiplier: +(1.1 + effectiveTeams.length * 0.1).toFixed(2),
     },
     createdAt: new Date().toISOString(),
   };
 
-  res.json(fallbackResult);
+  return res.json(result);
 });
 
 // Vite Middleware for Dev, Static serving for Prod

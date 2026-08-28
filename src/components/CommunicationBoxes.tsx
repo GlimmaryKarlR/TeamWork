@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { DialogueTurn, FinalConsensus, LLMModel } from '../types';
-import { Copy, Check } from 'lucide-react';
+import { AgentTeam, DialogueTurn, FinalConsensus, LLMModel } from '../types';
+import { Copy, Check, Users } from 'lucide-react';
 
 interface CommunicationBoxesProps {
+  teams?: AgentTeam[];
   alphaModel: LLMModel;
   betaModel: LLMModel;
   turns: DialogueTurn[];
@@ -12,6 +13,7 @@ interface CommunicationBoxesProps {
 }
 
 export const CommunicationBoxes: React.FC<CommunicationBoxesProps> = ({
+  teams = [],
   alphaModel,
   betaModel,
   turns,
@@ -32,19 +34,30 @@ export const CommunicationBoxes: React.FC<CommunicationBoxesProps> = ({
     return null;
   }
 
+  const teamSummary = teams.length > 0 
+    ? teams.map(t => `${t.name} (${t.alphaModel.name.split(' ')[0]} + ${t.betaModel.name.split(' ')[0]})`).join(', ')
+    : `${alphaModel.name} & ${betaModel.name}`;
+
   return (
     <div className="space-y-3">
       {/* Loading state */}
       {isLoading && turns.length === 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-blue-300 animate-pulse flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
-          <span>{alphaModel.name} & {betaModel.name} are analyzing and cross-verifying...</span>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-blue-300 animate-pulse flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping shrink-0" />
+          <span>
+            {teams.length > 1
+              ? `${teams.length} Teams (${teams.length * 2} Agents) are synchronizing computation and cross-verifying...`
+              : `${teamSummary} are analyzing and cross-verifying...`}
+          </span>
         </div>
       )}
 
       {/* Dialogue Stream */}
       {turns.map((turn, index) => {
         const isAlpha = turn.agent === 'alpha';
+        const displayModelName = turn.modelName || (isAlpha ? alphaModel.name : betaModel.name);
+        const teamLabel = turn.teamName || (teams.length > 1 ? `Team 1` : undefined);
+
         return (
           <div
             key={turn.id || index}
@@ -56,9 +69,16 @@ export const CommunicationBoxes: React.FC<CommunicationBoxesProps> = ({
           >
             {/* Header label */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/60 font-semibold">
-              <span className={isAlpha ? 'text-blue-400' : 'text-emerald-400'}>
-                {isAlpha ? `α ${alphaModel.name}` : `β ${betaModel.name}`}
-              </span>
+              <div className="flex items-center gap-2">
+                {teamLabel && (
+                  <span className="text-[10px] bg-slate-950 text-slate-300 px-1.5 py-0.5 rounded border border-slate-800 font-mono">
+                    {teamLabel}
+                  </span>
+                )}
+                <span className={isAlpha ? 'text-blue-400' : 'text-emerald-400'}>
+                  {isAlpha ? `α ${displayModelName}` : `β ${displayModelName}`}
+                </span>
+              </div>
               <span className="text-[10px] font-mono text-slate-400">
                 Round {turn.roundNumber}
               </span>
@@ -79,10 +99,10 @@ export const CommunicationBoxes: React.FC<CommunicationBoxesProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Agreed Consensus Deliverable
+                {teams.length > 1 ? 'Swarm Consensus Deliverable' : 'Agreed Consensus Deliverable'}
               </h3>
               <span className="text-[11px] font-mono text-emerald-400">
-                ({finalConsensus.consensusScore}% Agreement)
+                ({finalConsensus.consensusScore}% Agreement across {teams.length > 1 ? `${teams.length} Teams` : 'Agents'})
               </span>
             </div>
 

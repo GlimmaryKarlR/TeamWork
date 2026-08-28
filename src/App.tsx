@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { LLMModel, CollaborationProtocol, DialogueTurn, FinalConsensus } from './types';
+import { LLMModel, CollaborationProtocol, DialogueTurn, FinalConsensus, ProviderApiKeys, AgentTeam } from './types';
 import { SUPPORTED_MODELS, PRESET_TASKS } from './data/benchmarkData';
 import { formatOpenRouterModel } from './data/openRouterModels';
 import { recommendIdealTeamForTask } from './data/radarData';
@@ -18,6 +18,15 @@ import { ApiSettingsModal } from './components/ApiSettingsModal';
 
 const STORAGE_KEY = 'teamwork_api_settings';
 
+// Preset complementary pairs for quickly seeding new teams
+const COMPLEMENTARY_PAIRS: [string, string][] = [
+  ['gemini-3.7-flash', 'claude-3-7-sonnet'],
+  ['deepseek-r1', 'qwen-2.5-72b'],
+  ['gpt-4o', 'llama-3.3-70b'],
+  ['claude-3-7-sonnet', 'deepseek-r1'],
+  ['nemotron-3-nano', 'mistral-large-2'],
+];
+
 export default function App() {
   // Models catalog state (initializes with core supported models, dynamically expanded from OpenRouter)
   const [models, setModels] = useState<LLMModel[]>(SUPPORTED_MODELS);
@@ -25,13 +34,19 @@ export default function App() {
   const [lastModelsUpdate, setLastModelsUpdate] = useState<string>('');
 
   // API Keys state
-  const [openrouterApiKey, setOpenrouterApiKey] = useState<string>('');
-  const [geminiApiKey, setGeminiApiKey] = useState<string>('');
+  const [apiKeys, setApiKeys] = useState<ProviderApiKeys>({});
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
 
-  // Active Model selection
-  const [alphaModel, setAlphaModel] = useState<LLMModel>(SUPPORTED_MODELS[0]);
-  const [betaModel, setBetaModel] = useState<LLMModel>(SUPPORTED_MODELS[1]);
+  // Teams configuration state (each team has 2 agents = up to 5 teams / 10 agents total)
+  const [teams, setTeams] = useState<AgentTeam[]>([
+    {
+      id: 'team-1',
+      name: 'Team 1',
+      alphaModel: SUPPORTED_MODELS[0],
+      betaModel: SUPPORTED_MODELS[1],
+    },
+  ]);
+
   const [isHeatmapOpen, setIsHeatmapOpen] = useState(false);
 
   // Workflow automation & Tier selection
@@ -56,8 +71,9 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.openrouterApiKey) setOpenrouterApiKey(parsed.openrouterApiKey);
-        if (parsed.geminiApiKey) setGeminiApiKey(parsed.geminiApiKey);
+        if (typeof parsed === 'object' && parsed !== null) {
+          setApiKeys(parsed);
+        }
       }
     } catch (e) {
       console.warn('Could not load api settings from localStorage', e);
@@ -65,14 +81,10 @@ export default function App() {
   }, []);
 
   // Save API keys to localStorage
-  const handleSaveKeys = (orKey: string, gemKey: string) => {
-    setOpenrouterApiKey(orKey);
-    setGeminiApiKey(gemKey);
+  const handleSaveKeys = (newKeys: ProviderApiKeys) => {
+    setApiKeys(newKeys);
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ openrouterApiKey: orKey, geminiApiKey: gemKey })
-      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newKeys));
     } catch (e) {
       console.warn('Could not save api settings to localStorage', e);
     }
@@ -82,7 +94,7 @@ export default function App() {
   const fetchModels = useCallback(async (forceRefresh = false, customOrKey?: string) => {
     setIsRefreshingModels(true);
     try {
-      const keyToUse = customOrKey !== undefined ? customOrKey : openrouterApiKey;
+      const keyToUse = customOrKey !== undefined ? customOrKey : apiKeys.openrouterApiKey;
       const queryParams = new URLSearchParams();
       if (forceRefresh) queryParams.set('refresh', 'true');
       if (keyToUse) queryParams.set('apiKey', keyToUse);
@@ -146,50 +158,85 @@ export default function App() {
         setModels(loadedModels);
         setLastModelsUpdate(updatedAt);
 
-        // Preserve selected alpha / beta with updated metadata if present
-        setAlphaModel((prev) => loadedModels!.find((m: LLMModel) => m.id === prev.id) || prev);
-        setBetaModel((prev) => loadedModels!.find((m: LLMModel) => m.id === prev.id) || prev);
+        // Update existing teams with enriched metadata if matching IDs exist
+        setTeams((prevTeams) =>
+          prevTeams.map((team) => ({
+            ...team,
+            alphaModel: loadedModels!.find((m) => m.id === team.alphaModel.id) || team.alphaModel,
+            betaModel: loadedModels!.find((m) => m.id === team.betaModel.id) || team.betaModel,
+          }))
+        );
       }
     } catch (err) {
       console.warn('Error syncing models from OpenRouter:', err);
     } finally {
       setIsRefreshingModels(false);
     }
-  }, [openrouterApiKey]);
+  }, [apiKeys.openrouterApiKey]);
 
   // Initial load of model catalog on mount
   useEffect(() => {
     fetchModels(false);
   }, [fetchModels]);
 
-  // Automatically update the equipped team whenever prompt, tier, or auto-toggle changes
+  // Automatically update Team 1 with the recommended pairing whenever prompt, tier, or auto-toggle changes
   useEffect(() => {
     if (autoSelectTeam && prompt.trim()) {
       const rec = recommendIdealTeamForTask(prompt, tierFilter === 'free');
       const a = models.find((m) => m.id === rec.alphaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.alphaModelId);
       const b = models.find((m) => m.id === rec.betaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.betaModelId);
       if (a && b) {
-        setAlphaModel(a);
-        setBetaModel(b);
+        setTeams((prev) => {
+          if (prev.length === 0) return [{ id: 'team-1', name: 'Team 1', alphaModel: a, betaModel: b }];
+          return prev.map((t, idx) => (idx === 0 ? { ...t, alphaModel: a, betaModel: b } : t));
+        });
       }
     }
   }, [prompt, tierFilter, autoSelectTeam, models]);
 
-  const handleAlphaChange = (model: LLMModel) => {
-    setAlphaModel(model);
-    setAutoSelectTeam(false); // User made explicit custom selection
+  // Team Management Handlers
+  const handleAddTeam = () => {
+    if (teams.length >= 5) return; // Cap at 5 teams = 10 agents max
+    const newIndex = teams.length;
+    const pairSuggestion = COMPLEMENTARY_PAIRS[newIndex % COMPLEMENTARY_PAIRS.length];
+    const availablePool = tierFilter === 'free' ? models.filter((m) => m.isFree) : models;
+
+    let a = availablePool.find((m) => m.id === pairSuggestion[0]) || availablePool[0] || SUPPORTED_MODELS[0];
+    let b = availablePool.find((m) => m.id === pairSuggestion[1]) || availablePool[1] || SUPPORTED_MODELS[1];
+
+    const newTeam: AgentTeam = {
+      id: `team-${Date.now()}`,
+      name: `Team ${newIndex + 1}`,
+      alphaModel: a,
+      betaModel: b,
+    };
+
+    setTeams((prev) => [...prev, newTeam]);
   };
 
-  const handleBetaChange = (model: LLMModel) => {
-    setBetaModel(model);
+  const handleRemoveTeam = (teamId: string) => {
+    if (teams.length <= 1) return; // Keep at least 1 team
+    setTeams((prev) => {
+      const filtered = prev.filter((t) => t.id !== teamId);
+      return filtered.map((t, idx) => ({ ...t, name: `Team ${idx + 1}` }));
+    });
+  };
+
+  const handleUpdateTeam = (teamId: string, alphaModel: LLMModel, betaModel: LLMModel) => {
     setAutoSelectTeam(false); // User made explicit custom selection
+    setTeams((prev) =>
+      prev.map((t) => (t.id === teamId ? { ...t, alphaModel, betaModel } : t))
+    );
   };
 
   const handleSelectPair = (alphaId: string, betaId: string) => {
     const a = models.find((m) => m.id === alphaId) || SUPPORTED_MODELS.find((m) => m.id === alphaId);
     const b = models.find((m) => m.id === betaId) || SUPPORTED_MODELS.find((m) => m.id === betaId);
-    if (a) setAlphaModel(a);
-    if (b) setBetaModel(b);
+    if (a && b) {
+      setTeams((prev) =>
+        prev.map((t, idx) => (idx === 0 ? { ...t, alphaModel: a, betaModel: b } : t))
+      );
+    }
   };
 
   const handleToggleAutoSelect = (enabled: boolean) => {
@@ -199,8 +246,9 @@ export default function App() {
       const a = models.find((m) => m.id === rec.alphaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.alphaModelId);
       const b = models.find((m) => m.id === rec.betaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.betaModelId);
       if (a && b) {
-        setAlphaModel(a);
-        setBetaModel(b);
+        setTeams((prev) =>
+          prev.map((t, idx) => (idx === 0 ? { ...t, alphaModel: a, betaModel: b } : t))
+        );
       }
     }
   };
@@ -209,14 +257,24 @@ export default function App() {
     setTierFilter(tier);
     if (tier === 'free') {
       const freeModels = models.filter((m) => m.isFree);
-      if (!alphaModel.isFree && freeModels[0]) {
-        setAlphaModel(freeModels[0]);
-      }
-      if (!betaModel.isFree && freeModels[1]) {
-        setBetaModel(freeModels[1]);
+      if (freeModels.length > 0) {
+        setTeams((prev) =>
+          prev.map((t, idx) => {
+            const a = t.alphaModel.isFree
+              ? t.alphaModel
+              : freeModels[idx % freeModels.length];
+            const b = t.betaModel.isFree
+              ? t.betaModel
+              : freeModels[(idx + 1) % freeModels.length] || freeModels[0];
+            return { ...t, alphaModel: a, betaModel: b };
+          })
+        );
       }
     }
   };
+
+  const primaryAlpha = teams[0]?.alphaModel || SUPPORTED_MODELS[0];
+  const primaryBeta = teams[0]?.betaModel || SUPPORTED_MODELS[1];
 
   const handleRunMatchup = async () => {
     if (!prompt.trim() || isLoading) return;
@@ -226,15 +284,24 @@ export default function App() {
     setTurns([]);
     setFinalConsensus(null);
 
-    setLoadingStep(`${alphaModel.name} is preparing initial proposition...`);
+    const teamCount = teams.length;
+    setLoadingStep(
+      teamCount > 1
+        ? `${teamCount} Teams (${teamCount * 2} Agents) are synchronizing computation...`
+        : `${primaryAlpha.name} is preparing initial proposition...`
+    );
 
     try {
       const timer1 = setTimeout(() => {
-        setLoadingStep(`${betaModel.name} is auditing & cross-examining...`);
+        setLoadingStep(
+          teamCount > 1
+            ? 'Cross-team auditing & invariant stress-testing...'
+            : `${primaryBeta.name} is auditing & cross-examining...`
+        );
       }, 1400);
 
       const timer2 = setTimeout(() => {
-        setLoadingStep('Converging on mutual consensus deliverable...');
+        setLoadingStep('Synthesizing unified multi-agent consensus deliverable...');
       }, 3000);
 
       let data: { turns: DialogueTurn[]; finalConsensus: FinalConsensus | null } | null = null;
@@ -245,13 +312,25 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt,
-            agentAlphaModelId: alphaModel.id,
-            agentBetaModelId: betaModel.id,
+            teams: teams.map((t) => ({
+              id: t.id,
+              name: t.name,
+              alphaModelId: t.alphaModel.id,
+              betaModelId: t.betaModel.id,
+              alphaModel: t.alphaModel,
+              betaModel: t.betaModel,
+            })),
+            agentAlphaModelId: primaryAlpha.id,
+            agentBetaModelId: primaryBeta.id,
             protocol,
             rounds,
-            openrouterApiKey: openrouterApiKey || undefined,
-            geminiApiKey: geminiApiKey || undefined,
-            customModels: [alphaModel, betaModel],
+            openrouterApiKey: apiKeys.openrouterApiKey || undefined,
+            geminiApiKey: apiKeys.geminiApiKey || undefined,
+            openaiApiKey: apiKeys.openaiApiKey || undefined,
+            anthropicApiKey: apiKeys.anthropicApiKey || undefined,
+            deepseekApiKey: apiKeys.deepseekApiKey || undefined,
+            groqApiKey: apiKeys.groqApiKey || undefined,
+            customModels: teams.flatMap((t) => [t.alphaModel, t.betaModel]),
           }),
         });
 
@@ -263,13 +342,12 @@ export default function App() {
       }
 
       // If backend was not available and user provided an OpenRouter key, run direct browser execution
-      if (!data && openrouterApiKey) {
+      if (!data && apiKeys.openrouterApiKey) {
         data = await runClientSideCollaboration({
           prompt,
-          alphaModel,
-          betaModel,
+          teams,
           rounds,
-          openrouterApiKey,
+          openrouterApiKey: apiKeys.openrouterApiKey,
         });
       }
 
@@ -292,6 +370,14 @@ export default function App() {
   };
 
   const freeModelCount = models.filter((m) => m.isFree).length;
+  const hasConfiguredKeys = Boolean(
+    apiKeys.openrouterApiKey ||
+    apiKeys.geminiApiKey ||
+    apiKeys.openaiApiKey ||
+    apiKeys.anthropicApiKey ||
+    apiKeys.deepseekApiKey ||
+    apiKeys.groqApiKey
+  );
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
@@ -300,7 +386,7 @@ export default function App() {
         onOpenHeatmap={() => setIsHeatmapOpen((prev) => !prev)}
         isHeatmapOpen={isHeatmapOpen}
         onOpenApiSettings={() => setIsApiSettingsOpen(true)}
-        hasOpenRouterKey={Boolean(openrouterApiKey)}
+        hasOpenRouterKey={hasConfiguredKeys}
         modelCount={models.length}
         freeModelCount={freeModelCount}
         onRefreshModels={() => fetchModels(true)}
@@ -313,8 +399,8 @@ export default function App() {
         {isHeatmapOpen && (
           <div className="mb-4">
             <TeamingHeatmap
-              currentAlphaId={alphaModel.id}
-              currentBetaId={betaModel.id}
+              currentAlphaId={primaryAlpha.id}
+              currentBetaId={primaryBeta.id}
               onSelectPair={handleSelectPair}
             />
           </div>
@@ -329,8 +415,8 @@ export default function App() {
           isLoading={isLoading}
           onRunMatchup={handleRunMatchup}
           loadingStep={loadingStep}
-          currentAlphaId={alphaModel.id}
-          currentBetaId={betaModel.id}
+          currentAlphaId={primaryAlpha.id}
+          currentBetaId={primaryBeta.id}
           models={models}
           autoSelectTeam={autoSelectTeam}
           onToggleAutoSelect={handleToggleAutoSelect}
@@ -339,14 +425,14 @@ export default function App() {
           onSelectTeam={handleSelectPair}
         />
 
-        {/* 2. Model Selection (With Radar Graph in the center between Agent Alpha and Agent Beta) */}
+        {/* 2. Multi-Team Model Selection (Each team has 2 agents & individual Skill Tree Radar Graph; max 5 teams / 10 agents) */}
         <ModelSelector
-          alphaModel={alphaModel}
-          betaModel={betaModel}
+          teams={teams}
           models={models}
           tierFilter={tierFilter}
-          onAlphaChange={handleAlphaChange}
-          onBetaChange={handleBetaChange}
+          onAddTeam={handleAddTeam}
+          onRemoveTeam={handleRemoveTeam}
+          onUpdateTeam={handleUpdateTeam}
           onRefreshModels={() => fetchModels(true)}
           isRefreshingModels={isRefreshingModels}
         />
@@ -366,20 +452,20 @@ export default function App() {
 
         {/* 3. Communication Boxes */}
         <CommunicationBoxes
-          alphaModel={alphaModel}
-          betaModel={betaModel}
+          teams={teams}
+          alphaModel={primaryAlpha}
+          betaModel={primaryBeta}
           turns={turns}
           finalConsensus={finalConsensus}
           isLoading={isLoading}
         />
       </main>
 
-      {/* API Settings & OpenRouter Key Modal */}
+      {/* API Settings & Keys Modal */}
       <ApiSettingsModal
         isOpen={isApiSettingsOpen}
         onClose={() => setIsApiSettingsOpen(false)}
-        openrouterApiKey={openrouterApiKey}
-        geminiApiKey={geminiApiKey}
+        apiKeys={apiKeys}
         onSaveKeys={handleSaveKeys}
         onRefreshModels={() => fetchModels(true)}
         isRefreshingModels={isRefreshingModels}
@@ -393,7 +479,7 @@ export default function App() {
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
           <span className="font-semibold text-slate-400">TeamWorkAi</span>
           <span className="text-[11px] text-slate-500">
-            Multi-LLM Teaming ({models.length} Models • {freeModelCount} Free)
+            {teams.length} Team{teams.length > 1 ? 's' : ''} Configured ({teams.length * 2}/10 Agents) • {models.length} Models
           </span>
         </div>
       </footer>

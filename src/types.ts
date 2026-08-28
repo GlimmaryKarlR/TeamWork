@@ -1,3 +1,23 @@
+export interface ProviderApiKeys {
+  openrouterApiKey?: string;
+  geminiApiKey?: string;
+  openaiApiKey?: string;
+  anthropicApiKey?: string;
+  deepseekApiKey?: string;
+  groqApiKey?: string;
+  mistralApiKey?: string;
+  xaiApiKey?: string;
+  togetherApiKey?: string;
+  perplexityApiKey?: string;
+}
+
+export interface AgentTeam {
+  id: string;
+  name: string; // e.g. "Team 1", "Team 2", etc.
+  alphaModel: LLMModel;
+  betaModel: LLMModel;
+}
+
 export interface LLMModel {
   id: string;
   name: string;
@@ -36,8 +56,14 @@ export type CollaborationProtocol =
 export interface CollaborationTaskRequest {
   prompt: string;
   category?: string;
-  agentAlphaModelId: string;
-  agentBetaModelId: string;
+  agentAlphaModelId?: string;
+  agentBetaModelId?: string;
+  teams?: {
+    id: string;
+    name: string;
+    alphaModelId: string;
+    betaModelId: string;
+  }[];
   protocol: CollaborationProtocol;
   rounds: number;
 }
@@ -45,6 +71,8 @@ export interface CollaborationTaskRequest {
 export interface DialogueTurn {
   id: string;
   roundNumber: number;
+  teamId?: string;
+  teamName?: string;
   agent: 'alpha' | 'beta';
   modelId: string;
   modelName: string;
