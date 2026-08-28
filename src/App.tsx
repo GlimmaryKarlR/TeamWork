@@ -13,9 +13,10 @@ import { Header } from './components/Header';
 import { TeamingHeatmap } from './components/TeamingHeatmap';
 import { ModelSelector } from './components/ModelSelector';
 import { TaskInput } from './components/TaskInput';
-import { CommunicationBoxes } from './components/CommunicationBoxes';
+import { ConversationOutputCard } from './components/ConversationOutputCard';
 import { MergedSkillTreeCard } from './components/MergedSkillTreeCard';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
+import { ListFilter, Sparkles, SlidersHorizontal, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 
 const STORAGE_KEY = 'teamwork_api_settings';
 
@@ -49,6 +50,10 @@ export default function App() {
   ]);
 
   const [isHeatmapOpen, setIsHeatmapOpen] = useState(false);
+
+  // Team Selection View Mode: 'dropdowns' (traditional) | 'skillmap' (interactive star map node selector) | 'both'
+  const [teamSelectionMode, setTeamSelectionMode] = useState<'dropdowns' | 'skillmap' | 'both'>('dropdowns');
+  const [isSkillMapCollapsed, setIsSkillMapCollapsed] = useState<boolean>(false);
 
   // Workflow automation & Tier selection
   const [autoSelectTeam, setAutoSelectTeam] = useState<boolean>(true);
@@ -213,6 +218,25 @@ export default function App() {
     };
 
     setTeams((prev) => [...prev, newTeam]);
+  };
+
+  const handleAddTeamWithModels = (alphaModel: LLMModel, betaModel: LLMModel, customName?: string) => {
+    if (teams.length >= 5) return;
+    const newIndex = teams.length + 1;
+    const newTeam: AgentTeam = {
+      id: `team-${Date.now()}-${newIndex}`,
+      name: customName || `Team ${newIndex}`,
+      alphaModel,
+      betaModel,
+    };
+    setTeams((prev) => [...prev, newTeam]);
+  };
+
+  const handleApplyTeam1 = (alphaModel: LLMModel, betaModel: LLMModel) => {
+    setAutoSelectTeam(false);
+    setTeams((prev) =>
+      prev.map((t, idx) => (idx === 0 ? { ...t, alphaModel, betaModel } : t))
+    );
   };
 
   const handleRemoveTeam = (teamId: string) => {
@@ -426,23 +450,85 @@ export default function App() {
           onSelectTeam={handleSelectPair}
         />
 
-        {/* 2. Multi-Team Model Selection (Each team has 2 agents & individual Skill Tree Radar Graph; max 5 teams / 10 agents) */}
-        <ModelSelector
-          teams={teams}
-          models={models}
-          tierFilter={tierFilter}
-          onAddTeam={handleAddTeam}
-          onRemoveTeam={handleRemoveTeam}
-          onUpdateTeam={handleUpdateTeam}
-          onRefreshModels={() => fetchModels(true)}
-          isRefreshingModels={isRefreshingModels}
-        />
+        {/* 2. Team Composition & Skill Map View Mode Switcher */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/90 border border-slate-800 rounded-xl p-2 px-3 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-200 uppercase tracking-wider text-[11px]">
+              Team Builder Mode:
+            </span>
+            <span className="text-[11px] text-slate-400 hidden sm:inline">
+              Choose dropdown selection or interactive star map node selection
+            </span>
+          </div>
 
-        {/* 2.5. Merged Swarm Skill Tree Card */}
-        {teams.length > 1 && (
+          <div className="inline-flex p-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+            <button
+              id="tab-mode-dropdowns"
+              onClick={() => setTeamSelectionMode('dropdowns')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                teamSelectionMode === 'dropdowns'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Dropdown Roster</span>
+            </button>
+
+            <button
+              id="tab-mode-skillmap"
+              onClick={() => setTeamSelectionMode('skillmap')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                teamSelectionMode === 'skillmap'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+              <span>Skill Tree Map</span>
+            </button>
+
+            <button
+              id="tab-mode-both"
+              onClick={() => setTeamSelectionMode('both')}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                teamSelectionMode === 'both'
+                  ? 'bg-slate-800 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Both</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2.A. Multi-Team Model Selection (Dropdown Roster) */}
+        {(teamSelectionMode === 'dropdowns' || teamSelectionMode === 'both') && (
+          <ModelSelector
+            teams={teams}
+            models={models}
+            tierFilter={tierFilter}
+            onAddTeam={handleAddTeam}
+            onRemoveTeam={handleRemoveTeam}
+            onUpdateTeam={handleUpdateTeam}
+            onRefreshModels={() => fetchModels(true)}
+            isRefreshingModels={isRefreshingModels}
+          />
+        )}
+
+        {/* 2.B. Encompassing Swarm Skill Tree Map Card (Reverse Selection by clicking nodes) */}
+        {(teamSelectionMode === 'skillmap' || teamSelectionMode === 'both') && (
           <MergedSkillTreeCard
             teams={teams}
+            models={models}
+            tierFilter={tierFilter}
+            onApplyTeam1={handleApplyTeam1}
+            onAddTeamWithModels={handleAddTeamWithModels}
             onSelectTeam={handleSelectPair}
+            isCollapsible={teamSelectionMode === 'both'}
+            isCollapsed={isSkillMapCollapsed}
+            onToggleCollapse={() => setIsSkillMapCollapsed((prev) => !prev)}
           />
         )}
 
@@ -459,14 +545,17 @@ export default function App() {
           </div>
         )}
 
-        {/* 3. Communication Boxes */}
-        <CommunicationBoxes
+        {/* 3. Output Card: Conversation Transcript & Consensus Deliverable */}
+        <ConversationOutputCard
           teams={teams}
           alphaModel={primaryAlpha}
           betaModel={primaryBeta}
           turns={turns}
           finalConsensus={finalConsensus}
           isLoading={isLoading}
+          loadingStep={loadingStep}
+          onRunMatchup={handleRunMatchup}
+          prompt={prompt}
         />
       </main>
 

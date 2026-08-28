@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AgentTeam } from '../types';
+import { AgentTeam, LLMModel } from '../types';
 import {
   RADAR_CATEGORIES,
   RadarCategory,
@@ -7,7 +7,9 @@ import {
   TEAM_PALETTE,
   getMergedSwarmProfile,
   SwarmSkillNode,
+  getNodeRecommendedTeam,
 } from '../data/radarData';
+import { SUPPORTED_MODELS } from '../data/benchmarkData';
 import {
   Sparkles,
   Layers,
@@ -30,15 +32,35 @@ import {
   Network,
   Sliders,
   Check,
+  Plus,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
 } from 'lucide-react';
 
 interface MergedSkillTreeCardProps {
   teams: AgentTeam[];
+  models?: LLMModel[];
+  tierFilter?: 'all' | 'free';
+  onApplyTeam1?: (alphaModel: LLMModel, betaModel: LLMModel) => void;
+  onAddTeamWithModels?: (alphaModel: LLMModel, betaModel: LLMModel, teamName?: string) => void;
   onSelectTeam?: (alphaId: string, betaId: string) => void;
+  isCollapsible?: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
   teams,
+  models = SUPPORTED_MODELS,
+  tierFilter = 'all',
+  onApplyTeam1,
+  onAddTeamWithModels,
+  onSelectTeam,
+  isCollapsible = false,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
   const [selectedPerkId, setSelectedPerkId] = useState<string>('hyb-cyber-physicist');
   const [activeTeamFilter, setActiveTeamFilter] = useState<Record<string, boolean>>(() => {
@@ -50,6 +72,7 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
   });
   const [hoveredPerk, setHoveredPerk] = useState<SwarmSkillNode | null>(null);
   const [hoveredDomain, setHoveredDomain] = useState<RadarCategory | null>(null);
+  const [justApplied, setJustApplied] = useState<string | null>(null);
 
   // Filtered teams for overlay
   const effectiveTeams = useMemo(() => {
@@ -70,6 +93,56 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
       mergedData.perks[0]
     );
   }, [hoveredPerk, selectedPerkId, mergedData.perks]);
+
+  // Recommendation info for the currently selected perk
+  const recInfo = useMemo(() => {
+    if (!activePerk) return null;
+    const rec = getNodeRecommendedTeam(activePerk.id, tierFilter === 'free');
+    const availableList = models && models.length > 0 ? models : SUPPORTED_MODELS;
+    const alpha =
+      availableList.find((m) => m.id === rec.primaryAlphaId) ||
+      SUPPORTED_MODELS.find((m) => m.id === rec.primaryAlphaId) ||
+      availableList[0];
+    const beta =
+      availableList.find((m) => m.id === rec.primaryBetaId) ||
+      SUPPORTED_MODELS.find((m) => m.id === rec.primaryBetaId) ||
+      availableList[1];
+
+    // Check if this pair is already in one of the teams
+    const matchingTeam = teams.find(
+      (t) =>
+        (t.alphaModel.id === alpha?.id && t.betaModel.id === beta?.id) ||
+        (t.alphaModel.id === beta?.id && t.betaModel.id === alpha?.id)
+    );
+
+    return {
+      rec,
+      alpha,
+      beta,
+      matchingTeam,
+    };
+  }, [activePerk, tierFilter, models, teams]);
+
+  const handleApplyToTeam1 = () => {
+    if (!recInfo || !recInfo.alpha || !recInfo.beta) return;
+    if (onApplyTeam1) {
+      onApplyTeam1(recInfo.alpha, recInfo.beta);
+    } else if (onSelectTeam) {
+      onSelectTeam(recInfo.alpha.id, recInfo.beta.id);
+    }
+    setJustApplied('team-1');
+    setTimeout(() => setJustApplied(null), 2500);
+  };
+
+  const handleAddNewTeam = () => {
+    if (!recInfo || !recInfo.alpha || !recInfo.beta) return;
+    if (teams.length >= 5) return;
+    if (onAddTeamWithModels) {
+      onAddTeamWithModels(recInfo.alpha, recInfo.beta, recInfo.rec.teamLabel);
+    }
+    setJustApplied('new-team');
+    setTimeout(() => setJustApplied(null), 2500);
+  };
 
   const toggleTeam = (id: string) => {
     setActiveTeamFilter((prev) => ({
@@ -148,62 +221,98 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
         <div className="absolute -bottom-32 left-1/3 w-96 h-96 rounded-full bg-amber-600/10 blur-3xl" />
       </div>
 
-      {/* Header Banner: Title */}
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-800/80">
+      {/* Header Banner: Title & Controls */}
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
         <div>
-          <h3 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-            Swarm Skill Tree
-          </h3>
-          <span className="text-xs font-mono text-slate-400 mt-1 inline-block">
-            {effectiveTeams.length} Team{effectiveTeams.length > 1 ? 's' : ''} Selected ({effectiveTeams.length * 2} Models)
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-cyan-400" />
+              Swarm Skill Tree Map
+            </h3>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-800/50">
+              Interactive Node Selector
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Click any skill node on the celestial map to inspect discipline specializations and deploy specialized AI teams.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <span className="text-xs font-mono text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+            {teams.length} Team{teams.length > 1 ? 's' : ''} ({teams.length * 2} Models)
           </span>
+
+          {isCollapsible && onToggleCollapse && (
+            <button
+              id="btn-toggle-skill-map-collapse"
+              onClick={onToggleCollapse}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:text-white transition-colors cursor-pointer"
+            >
+              {isCollapsed ? (
+                <>
+                  <span>Expand Map</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </>
+              ) : (
+                <>
+                  <span>Collapse Map</span>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Team Selection Filters & Overlay Legend */}
-      <div className="relative z-10 mt-4 flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 px-3.5 backdrop-blur-sm">
-        <div className="flex items-center gap-2 text-xs text-slate-300">
-          <Sliders className="w-3.5 h-3.5 text-slate-400" />
-          <span className="font-semibold text-slate-200">Overlay Radar Layers:</span>
-        </div>
+      {!isCollapsed && (
+        <>
+          {/* Team Selection Filters & Overlay Legend (Shown if >1 team) */}
+          {teams.length > 1 && (
+            <div className="relative z-10 mt-4 flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 px-3.5 backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <Sliders className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-semibold text-slate-200">Overlay Radar Layers:</span>
+              </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {teams.map((t, idx) => {
-            const isEnabled = activeTeamFilter[t.id] !== false;
-            const color = TEAM_PALETTE[idx % TEAM_PALETTE.length];
+              <div className="flex flex-wrap items-center gap-2">
+                {teams.map((t, idx) => {
+                  const isEnabled = activeTeamFilter[t.id] !== false;
+                  const color = TEAM_PALETTE[idx % TEAM_PALETTE.length];
 
-            return (
-              <button
-                key={t.id}
-                id={`toggle-team-${t.id}`}
-                onClick={() => toggleTeam(t.id)}
-                className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium border transition-all duration-200 ${
-                  isEnabled
-                    ? 'bg-slate-800/90 text-white shadow-sm'
-                    : 'bg-slate-900/40 text-slate-500 border-slate-800 opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  borderColor: isEnabled ? color.stroke : undefined,
-                }}
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full ring-2 ring-slate-900"
-                  style={{ backgroundColor: color.stroke }}
-                />
-                <span className="font-bold">{t.name}</span>
-                <span className="text-[10px] text-slate-400">
-                  ({t.alphaModel.name.split(' ')[0]} + {t.betaModel.name.split(' ')[0]})
-                </span>
-                {isEnabled ? (
-                  <Check className="w-3 h-3 text-emerald-400" />
-                ) : (
-                  <span className="text-[9px] text-slate-500">Muted</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                  return (
+                    <button
+                      key={t.id}
+                      id={`toggle-team-${t.id}`}
+                      onClick={() => toggleTeam(t.id)}
+                      className={`flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium border transition-all duration-200 cursor-pointer ${
+                        isEnabled
+                          ? 'bg-slate-800/90 text-white shadow-sm'
+                          : 'bg-slate-900/40 text-slate-500 border-slate-800 opacity-60 hover:opacity-100'
+                      }`}
+                      style={{
+                        borderColor: isEnabled ? color.stroke : undefined,
+                      }}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full ring-2 ring-slate-900"
+                        style={{ backgroundColor: color.stroke }}
+                      />
+                      <span className="font-bold">{t.name}</span>
+                      <span className="text-[10px] text-slate-400">
+                        ({t.alphaModel.name.split(' ')[0]} + {t.betaModel.name.split(' ')[0]})
+                      </span>
+                      {isEnabled ? (
+                        <Check className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <span className="text-[9px] text-slate-500">Muted</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
       {/* Main Interactive Bento Layout */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-5 mt-5">
@@ -785,74 +894,188 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
         </div>
       </div>
 
-      {/* Skill Node Detail Inspector */}
-      {activePerk && (
-        <div
-          id="swarm-skill-inspector"
-          className="relative z-10 mt-5 bg-gradient-to-r from-[#0c1220] via-[#090d18] to-[#0c1220] border border-slate-700/80 rounded-xl p-4 shadow-xl backdrop-blur-md"
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center border shadow-lg"
-                style={{
-                  backgroundColor: `${activePerk.color}15`,
-                  borderColor: `${activePerk.color}50`,
-                }}
-              >
-                {React.createElement(getIconComponent(activePerk.iconName), {
-                  className: 'w-5 h-5',
-                  style: { color: activePerk.color },
-                })}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-xs uppercase font-mono tracking-wider font-bold"
-                    style={{ color: activePerk.color }}
+          {/* Skill Node Detail Inspector */}
+          {activePerk && (
+            <div
+              id="swarm-skill-inspector"
+              className="relative z-10 mt-5 bg-gradient-to-r from-[#0c1220] via-[#090d18] to-[#0c1220] border border-slate-700/80 rounded-xl p-4 sm:p-5 shadow-xl backdrop-blur-md space-y-4"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center border shadow-lg shrink-0"
+                    style={{
+                      backgroundColor: `${activePerk.color}15`,
+                      borderColor: `${activePerk.color}50`,
+                    }}
                   >
-                    {activePerk.discipline}
-                  </span>
-                  {activePerk.isUnlocked ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" /> Active Skill
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
-                      Inactive
-                    </span>
-                  )}
+                    {React.createElement(getIconComponent(activePerk.iconName), {
+                      className: 'w-5 h-5',
+                      style: { color: activePerk.color },
+                    })}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-xs uppercase font-mono tracking-wider font-bold"
+                        style={{ color: activePerk.color }}
+                      >
+                        {activePerk.discipline}
+                      </span>
+                      {activePerk.isUnlocked ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Active Skill
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-lg font-bold text-white tracking-tight mt-0.5">
+                      {activePerk.name}
+                    </h4>
+                  </div>
                 </div>
-                <h4 className="text-lg font-bold text-white tracking-tight mt-0.5">
-                  {activePerk.name}
-                </h4>
-              </div>
-            </div>
-          </div>
 
-          {/* Performance Effect & Discipline Context */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-3 pt-1 text-xs">
-            <div className="md:col-span-6 bg-slate-950/60 border border-slate-800/80 rounded-lg p-3">
-              <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>Capability Impact & Performance</span>
+                {/* Node Quick Select Status */}
+                {recInfo?.matchingTeam ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-mono font-bold">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Active in Swarm ({recInfo.matchingTeam.name})</span>
+                  </div>
+                ) : null}
               </div>
-              <p className="text-slate-200 font-mono text-[11px] leading-relaxed">
-                {activePerk.buff}
-              </p>
-            </div>
 
-            <div className="md:col-span-6 bg-slate-950/60 border border-slate-800/80 rounded-lg p-3">
-              <div className="flex items-center gap-1.5 font-bold text-slate-400 mb-1">
-                <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                <span>Discipline Context</span>
+              {/* Performance Effect & Discipline Context */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
+                <div className="md:col-span-6 bg-slate-950/60 border border-slate-800/80 rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Capability Impact & Performance</span>
+                  </div>
+                  <p className="text-slate-200 font-mono text-[11px] leading-relaxed">
+                    {activePerk.buff}
+                  </p>
+                </div>
+
+                <div className="md:col-span-6 bg-slate-950/60 border border-slate-800/80 rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-400 mb-1">
+                    <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Discipline Context</span>
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    {activePerk.lore}
+                  </p>
+                </div>
               </div>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                {activePerk.lore}
-              </p>
+
+              {/* Reverse Selection: Recommended Specialized Model Team Deployer */}
+              {recInfo && (
+                <div
+                  id="node-team-deployer"
+                  className="bg-slate-950/90 border border-cyan-900/60 rounded-xl p-3.5 sm:p-4 text-xs space-y-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-cyan-400" />
+                      <span className="font-bold text-slate-100 uppercase tracking-wider text-[11px]">
+                        Recommended Agent Team: <span className="text-cyan-300">{recInfo.rec.teamLabel}</span>
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Specialized for this node
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-300">
+                    {recInfo.rec.rationale}
+                  </p>
+
+                  {/* Models in recommended pairing */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Alpha Agent */}
+                    <div className="bg-slate-900/80 border border-blue-900/50 rounded-lg p-2.5 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-blue-300 font-mono font-bold">
+                        <span>AGENT ALPHA (α)</span>
+                        <span className="text-slate-400">{recInfo.rec.recommendedRoleAlpha}</span>
+                      </div>
+                      <div className="font-bold text-slate-100 text-xs">
+                        {recInfo.alpha?.name || recInfo.rec.primaryAlphaId}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {recInfo.alpha?.provider || 'AI Model'} • {recInfo.alpha?.isFree ? 'Free Tier' : 'Pro Tier'}
+                      </div>
+                    </div>
+
+                    {/* Beta Agent */}
+                    <div className="bg-slate-900/80 border border-emerald-900/50 rounded-lg p-2.5 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-emerald-300 font-mono font-bold">
+                        <span>AGENT BETA (β)</span>
+                        <span className="text-slate-400">{recInfo.rec.recommendedRoleBeta}</span>
+                      </div>
+                      <div className="font-bold text-slate-100 text-xs">
+                        {recInfo.beta?.name || recInfo.rec.primaryBetaId}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {recInfo.beta?.provider || 'AI Model'} • {recInfo.beta?.isFree ? 'Free Tier' : 'Pro Tier'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deploy Actions */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>Reverse-select this pairing into your active swarm:</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        id="btn-apply-node-to-team-1"
+                        type="button"
+                        onClick={handleApplyToTeam1}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 transition-all cursor-pointer shadow-sm"
+                      >
+                        {justApplied === 'team-1' ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                        <span>{justApplied === 'team-1' ? 'Applied to Team 1!' : 'Set as Team 1'}</span>
+                      </button>
+
+                      <button
+                        id="btn-add-node-as-swarm-team"
+                        type="button"
+                        onClick={handleAddNewTeam}
+                        disabled={teams.length >= 5}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-md ${
+                          teams.length < 5
+                            ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-950/40'
+                            : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                        }`}
+                      >
+                        {justApplied === 'new-team' ? (
+                          <Check className="w-3.5 h-3.5 text-white" />
+                        ) : (
+                          <Plus className="w-3.5 h-3.5" />
+                        )}
+                        <span>
+                          {justApplied === 'new-team'
+                            ? 'Team Added to Swarm!'
+                            : teams.length >= 5
+                            ? 'Max Teams (5)'
+                            : '+ Add as Swarm Team'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
