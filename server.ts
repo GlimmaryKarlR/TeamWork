@@ -393,7 +393,7 @@ Format with clean Markdown headings and bullet points.`;
           `Harmonized state boundary constraints between ${effectiveTeams.map(t => t.name).join(' and ')}`,
         ],
         keyStrengthsCombined: effectiveTeams.map(
-          (t) => `${t.name} (${t.alphaModel.name} + ${t.betaModel.name}): Specialized verification & execution synergy`
+          (t) => `${t.name} (${t.alphaModel.name} + ${t.betaModel.name}): Specialized verification & execution alignment`
         ),
         summaryVerdict: `Successful multi-team swarm alignment across ${effectiveTeams.length} team(s) on OpenRouter.`,
       };
@@ -413,7 +413,7 @@ Format with clean Markdown headings and bullet points.`;
           accuracyScore,
           efficiencyIndex,
           peakEfficiencyBenchmark: pairBenchmark.efficiencyIndex,
-          synergyMultiplier: +(1.1 + effectiveTeams.length * 0.1).toFixed(2),
+          performanceMultiplier: +(1.1 + effectiveTeams.length * 0.1).toFixed(2),
         },
         createdAt: new Date().toISOString(),
       });
@@ -544,7 +544,7 @@ JSON structure:
           accuracyScore,
           efficiencyIndex: liveEfficiencyIndex,
           peakEfficiencyBenchmark: pairBenchmark.efficiencyIndex,
-          synergyMultiplier: +(accuracyScore / Math.max(1, (primaryTeam.alphaModel.efficiencyTier === 'S' ? 95 : 85))).toFixed(2),
+          performanceMultiplier: +(accuracyScore / Math.max(1, (primaryTeam.alphaModel.efficiencyTier === 'S' ? 95 : 85))).toFixed(2),
         },
         createdAt: new Date().toISOString(),
       };
@@ -633,7 +633,7 @@ JSON structure:
       accuracyScore,
       efficiencyIndex,
       peakEfficiencyBenchmark: pairBenchmark.efficiencyIndex,
-      synergyMultiplier: +(1.1 + effectiveTeams.length * 0.1).toFixed(2),
+      performanceMultiplier: +(1.1 + effectiveTeams.length * 0.1).toFixed(2),
     },
     createdAt: new Date().toISOString(),
   };

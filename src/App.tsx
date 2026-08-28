@@ -14,6 +14,7 @@ import { TeamingHeatmap } from './components/TeamingHeatmap';
 import { ModelSelector } from './components/ModelSelector';
 import { TaskInput } from './components/TaskInput';
 import { CommunicationBoxes } from './components/CommunicationBoxes';
+import { MergedSkillTreeCard } from './components/MergedSkillTreeCard';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
 
 const STORAGE_KEY = 'teamwork_api_settings';
@@ -436,6 +437,14 @@ export default function App() {
           onRefreshModels={() => fetchModels(true)}
           isRefreshingModels={isRefreshingModels}
         />
+
+        {/* 2.5. Merged Swarm Skill Tree Card */}
+        {teams.length > 1 && (
+          <MergedSkillTreeCard
+            teams={teams}
+            onSelectTeam={handleSelectPair}
+          />
+        )}
 
         {/* Error message notice if any */}
         {errorMessage && (

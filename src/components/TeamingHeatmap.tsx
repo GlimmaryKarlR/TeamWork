@@ -130,7 +130,7 @@ export const TeamingHeatmap: React.FC<TeamingHeatmapProps> = ({
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 line-clamp-1">{benchmark.synergyLevel} Team Rating</span>
+                  <span className="text-slate-400 line-clamp-1">{benchmark.ratingTier} Team Rating</span>
                   <span className="text-blue-400 font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                     {isCurrent ? 'Equipped' : 'Equip'} <ChevronRight className="w-3 h-3" />
                   </span>

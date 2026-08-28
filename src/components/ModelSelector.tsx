@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AgentTeam, LLMModel } from '../types';
-import { getRadarProfileForTeam } from '../data/radarData';
+import { getRadarProfileForTeam, TEAM_PALETTE } from '../data/radarData';
 import { TeamRadarChart } from './TeamRadarChart';
 import { Gift, Plus, RefreshCw, Search, Trash2, Users, Zap } from 'lucide-react';
 
@@ -248,10 +248,16 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     alphaModel={team.alphaModel}
                     betaModel={team.betaModel}
                     profile={profile}
+                    teamIndex={teamIndex}
+                    strokeColor={TEAM_PALETTE[teamIndex % TEAM_PALETTE.length].stroke}
                     size={180}
                   />
-                  <div className="text-[10px] text-slate-400 font-mono mt-1">
-                    {team.name} Synergy Profile
+                  <div className="text-[10px] text-slate-400 font-mono mt-1 flex items-center gap-1">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: TEAM_PALETTE[teamIndex % TEAM_PALETTE.length].stroke }}
+                    />
+                    <span>{team.name} Capability Radar</span>
                   </div>
                 </div>
 

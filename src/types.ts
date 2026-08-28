@@ -42,7 +42,7 @@ export interface TeamPairBenchmark {
   timeToConsensusSec: number; // e.g. 3.8 (s)
   totalTokens: number; // e.g. 1850
   efficiencyIndex: number; // [(Accuracy ÷ (Time × Tokens)) × 10,000]
-  synergyLevel: 'Optimal' | 'High' | 'Solid' | 'Moderate';
+  ratingTier: 'Optimal' | 'High' | 'Solid' | 'Moderate';
   teamworkSpecialty: string;
   recommendedProtocol: string;
 }
@@ -98,7 +98,7 @@ export interface CollaborationTelemetry {
   accuracyScore: number;
   efficiencyIndex: number; // [(Accuracy ÷ (Time × Tokens)) × 10,000]
   peakEfficiencyBenchmark: number;
-  synergyMultiplier: number;
+  performanceMultiplier: number;
 }
 
 export interface CollaborationResult {

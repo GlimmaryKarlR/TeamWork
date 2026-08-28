@@ -164,7 +164,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 3.8,
     totalTokens: 1880,
     efficiencyIndex: 137,
-    synergyLevel: 'Optimal',
+    ratingTier: 'Optimal',
     teamworkSpecialty: 'High-speed proposal paired with rigorous architecture critique & constraint verification.',
     recommendedProtocol: 'debate_synthesize',
   },
@@ -176,7 +176,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.0,
     totalTokens: 1910,
     efficiencyIndex: 127,
-    synergyLevel: 'Optimal',
+    ratingTier: 'Optimal',
     teamworkSpecialty: 'Rigorous architectural drafting paired with rapid multidimensional stress testing.',
     recommendedProtocol: 'architect_auditor',
   },
@@ -188,7 +188,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.8,
     totalTokens: 1750,
     efficiencyIndex: 118,
-    synergyLevel: 'Optimal',
+    ratingTier: 'Optimal',
     teamworkSpecialty: 'Mathematical/algorithmic proof generation paired with clean production architecture.',
     recommendedProtocol: 'lead_verifier',
   },
@@ -200,7 +200,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.1,
     totalTokens: 1900,
     efficiencyIndex: 122,
-    synergyLevel: 'High',
+    ratingTier: 'High',
     teamworkSpecialty: 'Fast creative exploration combined with pragmatically grounded actionable milestones.',
     recommendedProtocol: 'debate_synthesize',
   },
@@ -212,7 +212,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.2,
     totalTokens: 1950,
     efficiencyIndex: 115,
-    synergyLevel: 'High',
+    ratingTier: 'High',
     teamworkSpecialty: 'Structured specification design with rapid multi-angle edge-case generation.',
     recommendedProtocol: 'architect_auditor',
   },
@@ -224,7 +224,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.9,
     totalTokens: 1840,
     efficiencyIndex: 106,
-    synergyLevel: 'High',
+    ratingTier: 'High',
     teamworkSpecialty: 'Deep reasoning chain verification translated into clear actionable deliverables.',
     recommendedProtocol: 'lead_verifier',
   },
@@ -236,7 +236,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.3,
     totalTokens: 2050,
     efficiencyIndex: 105,
-    synergyLevel: 'High',
+    ratingTier: 'High',
     teamworkSpecialty: 'Rapid cross-domain conceptualization paired with deep scientific & STEM domain verification.',
     recommendedProtocol: 'debate_synthesize',
   },
@@ -248,7 +248,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.6,
     totalTokens: 2020,
     efficiencyIndex: 101,
-    synergyLevel: 'High',
+    ratingTier: 'High',
     teamworkSpecialty: 'Strict constraint and edge case analysis coupled with broad multilingual STEM knowledge.',
     recommendedProtocol: 'architect_auditor',
   },
@@ -260,7 +260,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.2,
     totalTokens: 2030,
     efficiencyIndex: 112,
-    synergyLevel: 'High',
+    ratingTier: 'High',
     teamworkSpecialty: 'Concise tree-of-thought logic combined with broad synthesis and contextual flow.',
     recommendedProtocol: 'lead_verifier',
   },
@@ -272,8 +272,8 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 4.7,
     totalTokens: 2040,
     efficiencyIndex: 94,
-    synergyLevel: 'Solid',
-    teamworkSpecialty: 'Open weights synergy balancing Mixture-of-Experts technical depth and generalist alignment.',
+    ratingTier: 'Solid',
+    teamworkSpecialty: 'Open weights pairing balancing Mixture-of-Experts technical depth and generalist alignment.',
     recommendedProtocol: 'debate_synthesize',
   },
   'nova-lite_gemini-3.7-flash': {
@@ -284,7 +284,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 3.4,
     totalTokens: 2950,
     efficiencyIndex: 88,
-    synergyLevel: 'Solid',
+    ratingTier: 'Solid',
     teamworkSpecialty: 'Ultra-low latency triage with rapid escalation to multimodal depth.',
     recommendedProtocol: 'lead_verifier',
   },
@@ -296,7 +296,7 @@ export const PAIR_BENCHMARKS: Record<string, TeamPairBenchmark> = {
     timeToConsensusSec: 5.1,
     totalTokens: 2130,
     efficiencyIndex: 82,
-    synergyLevel: 'Solid',
+    ratingTier: 'Solid',
     teamworkSpecialty: 'Strict constraint and compliance filtering with deep engineering architecture review.',
     recommendedProtocol: 'architect_auditor',
   }
@@ -322,7 +322,7 @@ export function getTeamBenchmark(alphaId: string, betaId: string): TeamPairBench
       timeToConsensusSec: +(rev.timeToConsensusSec * 1.05).toFixed(1),
       totalTokens: Math.round(rev.totalTokens * 1.03),
       efficiencyIndex: Math.max(40, Math.round(rev.efficiencyIndex * 0.95)),
-      synergyLevel: rev.synergyLevel,
+      ratingTier: rev.ratingTier,
       teamworkSpecialty: rev.teamworkSpecialty,
       recommendedProtocol: rev.recommendedProtocol,
     };
@@ -335,10 +335,10 @@ export function getTeamBenchmark(alphaId: string, betaId: string): TeamPairBench
   const tierScores: Record<string, number> = { S: 96, A: 90, B: 83, C: 75 };
   const baseAcc = Math.round((tierScores[alphaModel.efficiencyTier] + tierScores[betaModel.efficiencyTier]) / 2);
   
-  // Diverse teams score higher than identical model teams (teaming synergy)
+  // Diverse teams score higher than identical model teams (complementary teaming bonus)
   const isSame = alphaId === betaId;
-  const synergyBonus = isSame ? -6 : 4;
-  const finalAcc = Math.min(99, Math.max(65, baseAcc + synergyBonus));
+  const teamingBonus = isSame ? -6 : 4;
+  const finalAcc = Math.min(99, Math.max(65, baseAcc + teamingBonus));
 
   const baseTime = (alphaId.includes('flash') || betaId.includes('flash') || alphaId.includes('lite') || betaId.includes('lite')) ? 3.9 : 4.8;
   const timeToConsensus = +(baseTime + (isSame ? 0.6 : 0.0)).toFixed(1);
@@ -348,11 +348,11 @@ export function getTeamBenchmark(alphaId: string, betaId: string): TeamPairBench
   const denom = (timeToConsensus * totalTokens);
   const efficiencyIndex = denom > 0 ? Math.round((finalAcc / denom) * 10000) : 0;
 
-  let synergyLevel: 'Optimal' | 'High' | 'Solid' | 'Moderate' = 'Solid';
-  if (efficiencyIndex >= 115) synergyLevel = 'Optimal';
-  else if (efficiencyIndex >= 95) synergyLevel = 'High';
-  else if (efficiencyIndex >= 70) synergyLevel = 'Solid';
-  else synergyLevel = 'Moderate';
+  let ratingTier: 'Optimal' | 'High' | 'Solid' | 'Moderate' = 'Solid';
+  if (efficiencyIndex >= 115) ratingTier = 'Optimal';
+  else if (efficiencyIndex >= 95) ratingTier = 'High';
+  else if (efficiencyIndex >= 70) ratingTier = 'Solid';
+  else ratingTier = 'Moderate';
 
   return {
     agentAlpha: alphaModel.name,
@@ -362,7 +362,7 @@ export function getTeamBenchmark(alphaId: string, betaId: string): TeamPairBench
     timeToConsensusSec: timeToConsensus,
     totalTokens,
     efficiencyIndex,
-    synergyLevel,
+    ratingTier,
     teamworkSpecialty: `Cooperative pairing leveraging ${alphaModel.teamRole} alongside ${betaModel.teamRole}.`,
     recommendedProtocol: 'debate_synthesize',
   };
