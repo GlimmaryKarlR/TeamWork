@@ -224,6 +224,13 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
               viewBox={`0 0 ${radarSize} ${radarSize}`}
               className="overflow-visible select-none"
             >
+              <defs>
+                <filter id="radarVertexGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+
               {/* Background Concentric Pentagons */}
               {[0.25, 0.5, 0.75, 1.0].map((ringFactor, rIdx) => {
                 const ringPoints = RADAR_CATEGORIES.map((_, idx) => {
@@ -235,10 +242,11 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                   <polygon
                     key={`overlay-ring-${rIdx}`}
                     points={ringPoints}
-                    fill={rIdx === 3 ? '#080d1a' : 'none'}
-                    stroke="#1e293b"
-                    strokeWidth={rIdx === 3 ? '1.5' : '1'}
-                    strokeDasharray={rIdx < 3 ? '2 2' : undefined}
+                    fill={rIdx === 3 ? '#060a16' : 'none'}
+                    stroke={rIdx === 3 ? '#334155' : '#1e293b'}
+                    strokeWidth={rIdx === 3 ? '1.5' : '0.8'}
+                    strokeDasharray={rIdx < 3 ? '2 3' : undefined}
+                    opacity={rIdx === 3 ? 0.9 : 0.6}
                   />
                 );
               })}
@@ -258,6 +266,7 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                     y2={y}
                     stroke={isHovered ? colorMeta.color : '#334155'}
                     strokeWidth={isHovered ? '2' : '1'}
+                    strokeOpacity={isHovered ? 0.9 : 0.4}
                   />
                 );
               })}
@@ -290,7 +299,7 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                 );
               })}
 
-              {/* Domain Vertices and Category Labels */}
+              {/* Domain Vertices and Category Labels with Optical Starlight Flares */}
               {RADAR_CATEGORIES.map((catName, idx) => {
                 const labelDist = 1.25;
                 const { x: lx, y: ly } = getRadarCoords(idx, labelDist);
@@ -309,13 +318,24 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                     onMouseLeave={() => setHoveredDomain(null)}
                     className="cursor-pointer"
                   >
+                    {/* Glowing Vertex at peak envelope */}
                     <circle
                       cx={vx}
                       cy={vy}
-                      r={isHovered ? '6' : '4.5'}
+                      r={isHovered ? '9' : '7'}
                       fill={colorMeta.color}
-                      stroke="#ffffff"
-                      strokeWidth="1.5"
+                      opacity={isHovered ? 0.4 : 0.25}
+                      filter="url(#radarVertexGlow)"
+                    />
+
+                    {/* Starlight Point */}
+                    <circle
+                      cx={vx}
+                      cy={vy}
+                      r={isHovered ? '5' : '3.8'}
+                      fill="#ffffff"
+                      stroke={colorMeta.color}
+                      strokeWidth="2"
                       className="transition-all duration-200"
                     />
 
@@ -324,7 +344,7 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                       y={ly}
                       textAnchor="middle"
                       fill={isHovered ? '#ffffff' : colorMeta.color}
-                      className="text-[10px] font-black tracking-tight transition-colors duration-150"
+                      className="text-[10.5px] font-bold tracking-tight transition-colors duration-150"
                     >
                       {colorMeta.shortLabel}
                     </text>
@@ -381,27 +401,186 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
           </div>
 
           {/* Skill Graph SVG Canvas */}
-          <div className="relative w-full h-[320px] my-2 bg-[#050811] rounded-xl border border-slate-800/80 overflow-hidden flex items-center justify-center shadow-inner">
-            <div className="absolute inset-0 pointer-events-none opacity-50 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-[#0a0f1d] to-[#03060c]" />
+          <div className="relative w-full h-[360px] my-2 bg-[#03060f] rounded-xl border border-slate-800/90 overflow-hidden flex items-center justify-center shadow-2xl">
+            {/* Deep Cosmic Nebulae & Multi-layer Aetherial Glows */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {/* Deep space radial vignette */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(15,23,42,0.6)_0%,_rgba(3,6,15,0.95)_75%,_#02040a_100%)]" />
+              
+              {/* STEM / Science Cyan Cosmic Cloud (Top) */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-48 rounded-full bg-cyan-500/15 blur-3xl mix-blend-screen animate-pulse" style={{ animationDuration: '8s' }} />
+              
+              {/* Logic & Strategy Violet Nebula (Top Right) */}
+              <div className="absolute top-6 right-4 w-56 h-48 rounded-full bg-purple-600/15 blur-3xl mix-blend-screen" />
+              
+              {/* Software & Systems Amber Star Dust (Bottom Right) */}
+              <div className="absolute bottom-4 right-8 w-60 h-52 rounded-full bg-amber-500/15 blur-3xl mix-blend-screen" />
+              
+              {/* Language & Law Rose Stellar Cloud (Bottom Left) */}
+              <div className="absolute bottom-4 left-6 w-56 h-48 rounded-full bg-rose-600/15 blur-3xl mix-blend-screen" />
+              
+              {/* General Reasoning Emerald Auroral Light (Top Left) */}
+              <div className="absolute top-8 left-4 w-56 h-48 rounded-full bg-emerald-500/15 blur-3xl mix-blend-screen" />
+
+              {/* Central Golden Singularity Glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-amber-400/10 blur-2xl mix-blend-screen" />
+
+              {/* Ambient Scattered Background Stars */}
+              {[
+                { t: '12%', l: '18%', s: 1.2, o: 0.6, c: '#e0f2fe' },
+                { t: '22%', l: '84%', s: 1.5, o: 0.8, c: '#ede9fe' },
+                { t: '82%', l: '16%', s: 1.0, o: 0.5, c: '#ffe4e6' },
+                { t: '76%', l: '88%', s: 1.4, o: 0.7, c: '#fef3c7' },
+                { t: '48%', l: '8%', s: 1.1, o: 0.4, c: '#d1fae5' },
+                { t: '42%', l: '92%', s: 1.3, o: 0.6, c: '#e0f2fe' },
+                { t: '15%', l: '62%', s: 1.0, o: 0.5, c: '#ffffff' },
+                { t: '88%', l: '52%', s: 1.2, o: 0.6, c: '#fef08a' },
+                { t: '30%', l: '35%', s: 0.8, o: 0.3, c: '#c7d2fe' },
+                { t: '65%', l: '70%', s: 0.9, o: 0.4, c: '#fde68a' },
+                { t: '70%', l: '32%', s: 0.8, o: 0.3, c: '#a7f3d0' },
+                { t: '10%', l: '40%', s: 1.1, o: 0.5, c: '#bae6fd' },
+              ].map((star, i) => (
+                <div
+                  key={`bg-star-${i}`}
+                  className="absolute rounded-full"
+                  style={{
+                    top: star.t,
+                    left: star.l,
+                    width: `${star.s * 2}px`,
+                    height: `${star.s * 2}px`,
+                    backgroundColor: star.c,
+                    opacity: star.o,
+                    boxShadow: `0 0 ${star.s * 4}px ${star.c}`,
+                  }}
+                />
+              ))}
+            </div>
 
             <svg
               viewBox="0 0 100 100"
-              className="w-full h-full p-3 overflow-visible select-none z-10"
+              className="w-full h-full p-2 overflow-visible select-none z-10"
               preserveAspectRatio="xMidYMid meet"
             >
               <defs>
-                <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="1.5" result="blur" />
+                {/* Intense Core Bloom */}
+                <filter id="intenseStarGlow" x="-80%" y="-80%" width="260%" height="260%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur1" />
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="0.6" result="blur2" />
+                  <feMerge>
+                    <feMergeNode in="blur1" />
+                    <feMergeNode in="blur2" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                {/* Soft Ambient Filament Glow */}
+                <filter id="filamentGlow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="0.9" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
+
+                {/* Central Singularity Gradient */}
                 <radialGradient id="nexusRadial" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#fef08a" stopOpacity="1" />
+                  <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+                  <stop offset="25%" stopColor="#fef08a" stopOpacity="0.95" />
                   <stop offset="60%" stopColor="#eab308" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#854d0e" stopOpacity="0" />
+                  <stop offset="85%" stopColor="#d97706" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#b45309" stopOpacity="0" />
+                </radialGradient>
+
+                {/* Cyan Nebula Gradient */}
+                <radialGradient id="cyanNebula" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
+                  <stop offset="50%" stopColor="#0284c7" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#0369a1" stopOpacity="0" />
+                </radialGradient>
+
+                {/* Purple Nebula Gradient */}
+                <radialGradient id="purpleNebula" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#c084fc" stopOpacity="0.35" />
+                  <stop offset="50%" stopColor="#9333ea" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#6b21a8" stopOpacity="0" />
+                </radialGradient>
+
+                {/* Amber Nebula Gradient */}
+                <radialGradient id="amberNebula" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.35" />
+                  <stop offset="50%" stopColor="#d97706" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#b45309" stopOpacity="0" />
+                </radialGradient>
+
+                {/* Rose Nebula Gradient */}
+                <radialGradient id="roseNebula" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#fb7185" stopOpacity="0.35" />
+                  <stop offset="50%" stopColor="#e11d48" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#9f1239" stopOpacity="0" />
+                </radialGradient>
+
+                {/* Emerald Nebula Gradient */}
+                <radialGradient id="emeraldNebula" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#34d399" stopOpacity="0.35" />
+                  <stop offset="50%" stopColor="#059669" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#065f46" stopOpacity="0" />
                 </radialGradient>
               </defs>
 
-              {/* Connecting Lines */}
+              {/* --- Ethereal Background Nebulae Clouds & Celestial Coordinate Glyphs --- */}
+              <g className="pointer-events-none">
+                {/* 5 Domain Nebula Glow Spheres */}
+                <circle cx="50" cy="18" r="16" fill="url(#cyanNebula)" />
+                <circle cx="80" cy="38" r="16" fill="url(#purpleNebula)" />
+                <circle cx="78" cy="74" r="16" fill="url(#amberNebula)" />
+                <circle cx="20" cy="74" r="16" fill="url(#roseNebula)" />
+                <circle cx="22" cy="38" r="16" fill="url(#emeraldNebula)" />
+
+                {/* Precision Celestial Coordinate Astrolabe Rings */}
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#334155" strokeWidth="0.3" strokeDasharray="1.5 2" opacity="0.4" />
+                <circle cx="50" cy="50" r="30" fill="none" stroke="#475569" strokeWidth="0.25" strokeDasharray="0.8 1.5" opacity="0.35" />
+                <circle cx="50" cy="50" r="18" fill="none" stroke="#64748b" strokeWidth="0.2" opacity="0.3" />
+
+                {/* Faint Radial Astrolabe Longitude Ticks */}
+                {[0, 72, 144, 216, 288].map((deg, i) => {
+                  const rad = (deg - 90) * (Math.PI / 180);
+                  const x1 = 50 + 18 * Math.cos(rad);
+                  const y1 = 50 + 18 * Math.sin(rad);
+                  const x2 = 50 + 44 * Math.cos(rad);
+                  const y2 = 50 + 44 * Math.sin(rad);
+                  return (
+                    <line
+                      key={`astrolabe-ray-${i}`}
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      stroke="#475569"
+                      strokeWidth="0.25"
+                      strokeDasharray="1 3"
+                      opacity="0.3"
+                    />
+                  );
+                })}
+
+                {/* Scientific Discipline Geometric Watermarks (Faint Ethereal Schematics) */}
+                {/* STEM Atomic Orbitals (Top) */}
+                <ellipse cx="50" cy="20" rx="9" ry="3.5" fill="none" stroke="#06b6d4" strokeWidth="0.25" strokeDasharray="0.5 1.5" opacity="0.25" transform="rotate(-20 50 20)" />
+                <ellipse cx="50" cy="20" rx="9" ry="3.5" fill="none" stroke="#06b6d4" strokeWidth="0.25" strokeDasharray="0.5 1.5" opacity="0.25" transform="rotate(40 50 20)" />
+                
+                {/* Logic Decision Matrix Ring (Top Right) */}
+                <polygon points="76,32 84,32 88,38 84,44 76,44 72,38" fill="none" stroke="#a855f7" strokeWidth="0.25" strokeDasharray="0.8 1.2" opacity="0.25" />
+
+                {/* Systems Engineering Conduit Mesh (Bottom Right) */}
+                <rect x="73" y="65" width="12" height="12" rx="2" fill="none" stroke="#f59e0b" strokeWidth="0.25" strokeDasharray="1 1.5" opacity="0.2" transform="rotate(15 79 71)" />
+
+                {/* Humanities & Law Harmonic Balance Arcs (Bottom Left) */}
+                <path d="M 12 70 Q 20 62 28 70 T 44 70" fill="none" stroke="#f43f5e" strokeWidth="0.25" strokeDasharray="0.8 1.5" opacity="0.2" />
+
+                {/* Reasoning Compass Astrolabe (Top Left) */}
+                <circle cx="23" cy="38" r="8" fill="none" stroke="#10b981" strokeWidth="0.25" strokeDasharray="1 2" opacity="0.25" />
+                <line x1="15" y1="38" x2="31" y2="38" stroke="#10b981" strokeWidth="0.2" opacity="0.2" />
+                <line x1="23" y1="30" x2="23" y2="46" stroke="#10b981" strokeWidth="0.2" opacity="0.2" />
+              </g>
+
+              {/* --- Luminous Constellation Filaments / Energy Beams --- */}
               {mergedData.perks.map((perk) => {
                 return perk.parentIds.map((pId) => {
                   let parentX = 50;
@@ -416,47 +595,80 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                   }
 
                   const isUnlockedPath = perk.isUnlocked;
+                  const isHoveredBranch = hoveredDomain === perk.category || (hoveredPerk && hoveredPerk.id === perk.id);
 
                   return (
-                    <line
-                      key={`line-${pId}-${perk.id}`}
-                      x1={parentX}
-                      y1={parentY}
-                      x2={perk.x}
-                      y2={perk.y}
-                      stroke={isUnlockedPath ? perk.color : '#334155'}
-                      strokeWidth={isUnlockedPath ? (perk.category === 'Hybrid' ? '0.9' : '0.7') : '0.4'}
-                      strokeDasharray={isUnlockedPath ? (perk.category === 'Hybrid' ? '1.5 1' : undefined) : '1 1.5'}
-                      strokeOpacity={isUnlockedPath ? 0.85 : 0.4}
-                      className="transition-all duration-300"
-                    />
+                    <g key={`filament-grp-${pId}-${perk.id}`}>
+                      {/* Layer 1: Ambient Plasma Glow */}
+                      {isUnlockedPath && (
+                        <line
+                          x1={parentX}
+                          y1={parentY}
+                          x2={perk.x}
+                          y2={perk.y}
+                          stroke={perk.color}
+                          strokeWidth={isHoveredBranch ? '2.4' : '1.4'}
+                          strokeOpacity={isHoveredBranch ? 0.7 : 0.4}
+                          filter="url(#filamentGlow)"
+                          className="transition-all duration-300"
+                        />
+                      )}
+
+                      {/* Layer 2: High-Intensity Laser Core */}
+                      <line
+                        x1={parentX}
+                        y1={parentY}
+                        x2={perk.x}
+                        y2={perk.y}
+                        stroke={isUnlockedPath ? (isHoveredBranch ? '#ffffff' : perk.color) : '#334155'}
+                        strokeWidth={isUnlockedPath ? (perk.category === 'Hybrid' ? '0.9' : '0.65') : '0.35'}
+                        strokeDasharray={isUnlockedPath ? (perk.category === 'Hybrid' ? '2 0.8' : undefined) : '0.8 1.5'}
+                        strokeOpacity={isUnlockedPath ? 0.95 : 0.35}
+                        className="transition-all duration-300"
+                      />
+                    </g>
                   );
                 });
               })}
 
-              {/* Core Center Node (50, 50) */}
-              <g className="cursor-pointer" onClick={() => setSelectedPerkId('hyb-legendary-sovereign')}>
-                <circle cx="50" cy="50" r="7" fill="url(#nexusRadial)" filter="url(#starGlow)" opacity="0.6" />
-                <circle cx="50" cy="50" r="2.8" fill="#facc15" stroke="#ffffff" strokeWidth="0.6" />
-                <text
-                  x="50"
-                  y="53.8"
-                  textAnchor="middle"
-                  fill="#000000"
-                  fontSize="2.2"
-                  fontWeight="bold"
-                  className="pointer-events-none font-sans"
-                >
-                  ⚡
-                </text>
+              {/* --- Central Swarm Singularity / Integration Star (50, 50) --- */}
+              <g
+                className="cursor-pointer"
+                onClick={() => setSelectedPerkId('hyb-legendary-sovereign')}
+                onMouseEnter={() => setHoveredPerk(mergedData.perks.find(p => p.id === 'hyb-legendary-sovereign') || null)}
+                onMouseLeave={() => setHoveredPerk(null)}
+              >
+                {/* Radiating Celestial Corona */}
+                <circle cx="50" cy="50" r="10" fill="url(#nexusRadial)" filter="url(#intenseStarGlow)" opacity="0.75" />
+                
+                {/* Concentric Singularity Resonator Rings */}
+                <circle cx="50" cy="50" r="5.5" fill="none" stroke="#fef08a" strokeWidth="0.4" strokeDasharray="1.2 1" opacity="0.8" className="animate-spin" style={{ animationDuration: '14s', transformOrigin: '50px 50px' }} />
+                <circle cx="50" cy="50" r="3.6" fill="none" stroke="#ffffff" strokeWidth="0.3" opacity="0.9" />
+
+                {/* 8-Point Starlight Optical Diffraction Starburst */}
+                <path
+                  d="M 50 42 Q 50 50 58 50 Q 50 50 50 58 Q 50 50 42 50 Q 50 50 50 42 Z"
+                  fill="#ffffff"
+                  filter="url(#intenseStarGlow)"
+                  opacity="0.9"
+                />
+                <path
+                  d="M 44.5 44.5 Q 50 50 55.5 55.5 Q 50 50 44.5 55.5 Q 50 50 55.5 44.5 Z"
+                  fill="#fef08a"
+                  opacity="0.7"
+                />
+
+                {/* Core White Dwarf Pinpoint */}
+                <circle cx="50" cy="50" r="1.6" fill="#ffffff" stroke="#facc15" strokeWidth="0.5" />
               </g>
 
-              {/* Skill Nodes */}
+              {/* --- Skill Nodes with Authentic Skyrim Optical Diffraction Flares --- */}
               {mergedData.perks.map((perk) => {
                 if (perk.id === 'hyb-legendary-sovereign') return null;
 
                 const isSelected = selectedPerkId === perk.id || hoveredPerk?.id === perk.id;
                 const isHybrid = perk.category === 'Hybrid';
+                const flareSize = isHybrid ? 4.5 : (perk.tier === 3 ? 4.0 : 3.2);
 
                 return (
                   <g
@@ -467,52 +679,83 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                     onMouseLeave={() => setHoveredPerk(null)}
                     onClick={() => setSelectedPerkId(perk.id)}
                   >
-                    {/* Outer selection ring if selected */}
+                    {/* Selected Active Orbit Ring */}
                     {isSelected && (
-                      <circle
-                        cx={perk.x}
-                        cy={perk.y}
-                        r="4"
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="0.5"
-                        strokeDasharray="1 0.8"
-                        className="animate-spin"
-                        style={{ animationDuration: '6s' }}
-                      />
+                      <g>
+                        <circle
+                          cx={perk.x}
+                          cy={perk.y}
+                          r={flareSize + 1.8}
+                          fill="none"
+                          stroke="#ffffff"
+                          strokeWidth="0.45"
+                          strokeDasharray="1.2 0.8"
+                          className="animate-spin"
+                          style={{ animationDuration: '6s', transformOrigin: `${perk.x}px ${perk.y}px` }}
+                        />
+                        <circle
+                          cx={perk.x}
+                          cy={perk.y}
+                          r={flareSize + 3}
+                          fill="none"
+                          stroke={perk.color}
+                          strokeWidth="0.25"
+                          opacity="0.6"
+                        />
+                      </g>
                     )}
 
-                    {/* Unlocked Radiant Glow */}
+                    {/* Unlocked Radiant Starburst Glow & Corona */}
                     {perk.isUnlocked && (
-                      <circle
-                        cx={perk.x}
-                        cy={perk.y}
-                        r={isHybrid ? '3.2' : '2.5'}
-                        fill={perk.color}
-                        opacity="0.35"
-                        filter="url(#starGlow)"
-                      />
+                      <g>
+                        {/* Outer Soft Color Halo */}
+                        <circle
+                          cx={perk.x}
+                          cy={perk.y}
+                          r={flareSize * 1.6}
+                          fill={perk.color}
+                          opacity="0.3"
+                          filter="url(#intenseStarGlow)"
+                        />
+
+                        {/* 4-Point Skyrim Optical Diamond Flare */}
+                        <path
+                          d={`M ${perk.x} ${perk.y - flareSize} Q ${perk.x} ${perk.y} ${perk.x + flareSize * 0.35} ${perk.y} Q ${perk.x} ${perk.y} ${perk.x} ${perk.y + flareSize} Q ${perk.x} ${perk.y} ${perk.x - flareSize * 0.35} ${perk.y} Z`}
+                          fill="#ffffff"
+                          filter="url(#intenseStarGlow)"
+                          opacity={isSelected ? 0.95 : 0.8}
+                        />
+                        <path
+                          d={`M ${perk.x - flareSize} ${perk.y} Q ${perk.x} ${perk.y} ${perk.x} ${perk.y - flareSize * 0.35} Q ${perk.x} ${perk.y} ${perk.x + flareSize} ${perk.y} Q ${perk.x} ${perk.y} ${perk.x} ${perk.y + flareSize * 0.35} Z`}
+                          fill="#ffffff"
+                          filter="url(#intenseStarGlow)"
+                          opacity={isSelected ? 0.95 : 0.8}
+                        />
+                      </g>
                     )}
 
-                    {/* Node Core */}
+                    {/* Node Core Physical Bead */}
                     <circle
                       cx={perk.x}
                       cy={perk.y}
-                      r={perk.isUnlocked ? (isHybrid ? '2.2' : '1.8') : '1.3'}
-                      fill={perk.isUnlocked ? perk.color : '#1e293b'}
-                      stroke={perk.isUnlocked ? '#ffffff' : '#475569'}
-                      strokeWidth={perk.isUnlocked ? '0.5' : '0.3'}
+                      r={perk.isUnlocked ? (isHybrid ? '1.9' : '1.5') : '1.1'}
+                      fill={perk.isUnlocked ? '#ffffff' : '#1e293b'}
+                      stroke={perk.isUnlocked ? perk.color : '#475569'}
+                      strokeWidth={perk.isUnlocked ? '0.6' : '0.3'}
                     />
 
-                    {/* Node Label */}
+                    {/* Node Text Label with Starlight Backing */}
                     <text
                       x={perk.x}
-                      y={perk.y + 3.8}
+                      y={perk.y + (perk.y > 60 ? -3.2 : 4.2)}
                       textAnchor="middle"
                       fill={perk.isUnlocked ? (isSelected ? '#ffffff' : perk.color) : '#64748b'}
-                      fontSize="2.1"
-                      fontWeight={perk.isUnlocked ? 'bold' : 'normal'}
-                      className="font-sans"
+                      fontSize="2.15"
+                      fontWeight={perk.isUnlocked ? '700' : '500'}
+                      className="font-sans select-none tracking-tight"
+                      style={{
+                        textShadow: perk.isUnlocked ? `0 0 4px ${perk.color}` : 'none',
+                      }}
                     >
                       {perk.shortName}
                     </text>
