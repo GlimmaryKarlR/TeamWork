@@ -96,7 +96,13 @@ export function bucketChallengeType(rawStr?: string): RadarCategory {
   if (!rawStr) return 'General Reasoning';
   const s = rawStr.toLowerCase();
 
+  // Mathematical equations, arithmetic expressions (e.g., "2+2", "3 * 8", "10 / 2", "5 - 3"), formulas, and STEM
+  const hasArithmetic = /[\d\s]+[\+\-\*\/\^=\>\<][\d\s]+/.test(s);
+  const hasMathTerms = /\b(solve|calculate|equation|integral|derivative|algebra|arithmetic|geometry|matrix|matrices|sum|difference|product|quotient|percent|percentage|add|subtract|multiply|divide|square root|logarithm|modulo)\b/.test(s);
+
   if (
+    hasArithmetic ||
+    hasMathTerms ||
     s.includes('physics') ||
     s.includes('thermo') ||
     s.includes('chem') ||
@@ -108,7 +114,8 @@ export function bucketChallengeType(rawStr?: string): RadarCategory {
     s.includes('calculus') ||
     s.includes('quantum') ||
     s.includes('enzyme') ||
-    s.includes('kinetics')
+    s.includes('kinetics') ||
+    s.includes('thermodynamics')
   ) {
     return 'Science & STEM';
   } else if (
@@ -123,7 +130,10 @@ export function bucketChallengeType(rawStr?: string): RadarCategory {
     s.includes('knights') ||
     s.includes('decanting') ||
     s.includes('deductive') ||
-    s.includes('duopoly')
+    s.includes('duopoly') ||
+    s.includes('riddle') ||
+    s.includes('minimax') ||
+    s.includes('nash')
   ) {
     return 'Logic & Strategy';
   } else if (
@@ -139,7 +149,15 @@ export function bucketChallengeType(rawStr?: string): RadarCategory {
     s.includes('swe_bench') ||
     s.includes('deque') ||
     s.includes('lattice') ||
-    s.includes('byzantine')
+    s.includes('byzantine') ||
+    s.includes('javascript') ||
+    s.includes('typescript') ||
+    s.includes('api') ||
+    s.includes('sql') ||
+    s.includes('bug') ||
+    s.includes('refactor') ||
+    s.includes('backend') ||
+    s.includes('frontend')
   ) {
     return 'Coding & Tech';
   } else if (
@@ -151,7 +169,12 @@ export function bucketChallengeType(rawStr?: string): RadarCategory {
     s.includes('philosophy') ||
     s.includes('ifeval') ||
     s.includes('constraint') ||
-    s.includes('summary')
+    s.includes('summary') ||
+    s.includes('legal') ||
+    s.includes('constitutional') ||
+    s.includes('literature') ||
+    s.includes('poem') ||
+    s.includes('essay')
   ) {
     return 'Humanities & Law';
   } else {

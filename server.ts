@@ -189,26 +189,77 @@ app.get("/api/benchmarks/pair", (req, res) => {
 });
 
 // Helper for calling OpenRouter Chat API
-async function callOpenRouterChat(apiKey: string, modelId: string, messages: any[]): Promise<string> {
+const SERVER_FREE_FALLBACKS = [
+  "openrouter/free",
+  "deepseek/deepseek-r1:free",
+  "deepseek/deepseek-chat:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "qwen/qwen-2.5-72b-instruct:free",
+  "google/gemini-2.0-flash-exp:free",
+];
+
+async function callOpenRouterDirect(
+  apiKey: string,
+  modelId: string,
+  messages: { role: string; content: string }[],
+  retryCount = 0,
+  maxTokens = 1500
+): Promise<{ content: string; modelUsed: string }> {
+  let targetModel = modelId;
+  if (targetModel === "gemini-3.7-flash") targetModel = "google/gemini-2.5-flash";
+  else if (targetModel === "claude-3-7-sonnet") targetModel = "anthropic/claude-3.7-sonnet";
+  else if (targetModel === "gpt-4o") targetModel = "openai/gpt-4o";
+  else if (targetModel === "deepseek-r1") targetModel = "deepseek/deepseek-r1:free";
+  else if (targetModel === "qwen-2.5-72b") targetModel = "qwen/qwen-2.5-72b-instruct:free";
+  else if (targetModel === "llama-3.3-70b") targetModel = "meta-llama/llama-3.3-70b-instruct:free";
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${apiKey.trim()}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://ai.studio/build',
       'X-Title': 'TeamWorkAi',
     },
     body: JSON.stringify({
-      model: modelId,
+      model: targetModel,
       messages,
       temperature: 0.7,
-      max_tokens: 1500,
+      max_tokens: maxTokens,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenRouter API error (${response.status}): ${errorText}`);
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(errorText);
+    } catch {}
+    const errorMsg = parsed?.error?.message || errorText;
+    console.warn(`[Server OpenRouter] Error for ${targetModel} (HTTP ${response.status}):`, errorMsg);
+
+    // 402 or low credit balance fallback
+    if (response.status === 402 || errorMsg.includes("requires more credits") || errorMsg.includes("can only afford")) {
+      const affordMatch = errorMsg.match(/can only afford\s+(\d+)/i);
+      if (affordMatch && affordMatch[1] && retryCount < 1) {
+        const affordable = parseInt(affordMatch[1], 10);
+        if (affordable >= 80) {
+          return callOpenRouterDirect(apiKey, targetModel, messages, retryCount + 1, Math.max(60, affordable - 20));
+        }
+      }
+      const fallbackTarget = SERVER_FREE_FALLBACKS[retryCount % SERVER_FREE_FALLBACKS.length];
+      console.warn(`[Server OpenRouter 402 Auto-Fallback] Routing ${targetModel} to free candidate ${fallbackTarget}.`);
+      return callOpenRouterDirect(apiKey, fallbackTarget, messages, retryCount + 1, 1200);
+    }
+
+    if ((response.status === 429 || response.status === 404) && retryCount < 2) {
+      const fallbackTarget = SERVER_FREE_FALLBACKS[retryCount % SERVER_FREE_FALLBACKS.length];
+      console.warn(`[Server OpenRouter Auto-Fallback] Retrying with ${fallbackTarget}.`);
+      await new Promise((r) => setTimeout(r, 1200));
+      return callOpenRouterDirect(apiKey, fallbackTarget, messages, retryCount + 1, maxTokens);
+    }
+
+    throw new Error(`OpenRouter API error (${response.status}): ${errorMsg}`);
   }
 
   const data = await response.json();
@@ -216,7 +267,7 @@ async function callOpenRouterChat(apiKey: string, modelId: string, messages: any
   if (!content) {
     throw new Error('No content returned from OpenRouter.');
   }
-  return content;
+  return { content, modelUsed: data.model || targetModel };
 }
 
 // Run Multi-Agent Team Matchup Collaboration
@@ -320,10 +371,11 @@ app.post("/api/collaborate", async (req, res) => {
 Provide a clear, high-conviction technical proposal for the following task. 
 Structure your answer in 2-3 concise paragraphs or bullet points detailing core principles, key mechanisms, and steps. Keep it direct and free of fluff.`;
 
-        const alphaRound1 = await callOpenRouterChat(orApiKey, teamAlpha.id, [
+        const alphaRes = await callOpenRouterDirect(orApiKey, teamAlpha.id, [
           { role: 'system', content: alphaSysPrompt },
           ...conversationHistory,
         ]);
+        const alphaRound1 = alphaRes.content;
 
         turns.push({
           id: `turn-${turnCounter++}`,
@@ -331,7 +383,7 @@ Structure your answer in 2-3 concise paragraphs or bullet points detailing core 
           teamId: currentTeam.id,
           teamName: currentTeam.name,
           agent: 'alpha',
-          modelId: teamAlpha.id,
+          modelId: alphaRes.modelUsed,
           modelName: teamAlpha.name,
           agentRole: teamAlpha.teamRole,
           content: alphaRound1,
@@ -355,10 +407,11 @@ Structure your answer in 2-3 concise paragraphs or bullet points detailing core 
 You are collaborating with Agent Alpha of ${currentTeam.name}. Critically review Alpha's proposal.
 Identify potential edge cases, hidden constraints, scalability/correctness risks, and provide constructive counter-proposals. Keep your review sharp, respectful, and technical.`;
 
-        const betaRound1 = await callOpenRouterChat(orApiKey, teamBeta.id, [
+        const betaRes = await callOpenRouterDirect(orApiKey, teamBeta.id, [
           { role: 'system', content: betaSysPrompt },
           ...conversationHistory,
         ]);
+        const betaRound1 = betaRes.content;
 
         turns.push({
           id: `turn-${turnCounter++}`,
@@ -366,7 +419,7 @@ Identify potential edge cases, hidden constraints, scalability/correctness risks
           teamId: currentTeam.id,
           teamName: currentTeam.name,
           agent: 'beta',
-          modelId: teamBeta.id,
+          modelId: betaRes.modelUsed,
           modelName: teamBeta.name,
           agentRole: teamBeta.teamRole,
           content: betaRound1,
@@ -396,10 +449,11 @@ Include:
 
 Format with clean Markdown headings and bullet points.`;
 
-      const consensusText = await callOpenRouterChat(orApiKey, primaryTeam.alphaModel.id, [
+      const consensusRes = await callOpenRouterDirect(orApiKey, primaryTeam.alphaModel.id, [
         ...conversationHistory,
         { role: 'user', content: consensusPrompt },
       ]);
+      const consensusText = consensusRes.content;
 
       const wallClockMs = Date.now() - startTime;
       const totalTokens = turns.reduce((acc, t) => acc + (t.turnTokens || 0), 0) + Math.round(consensusText.length / 3.8);
