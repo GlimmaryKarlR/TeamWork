@@ -6,6 +6,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { SUPPORTED_MODELS, getTeamBenchmark } from "./src/data/benchmarkData.js";
 import { formatOpenRouterModel } from "./src/data/openRouterModels.js";
 import { LLMModel } from "./src/types.js";
+import { computeLeaderboard, syncFromFirestore, getAllRuns } from "./server/firestoreLeaderboard.js";
 
 dotenv.config();
 
@@ -46,6 +47,27 @@ app.get("/api/health", (req, res) => {
 // Built-in models metadata
 app.get("/api/models", (req, res) => {
   res.json({ models: SUPPORTED_MODELS });
+});
+
+// Benchmark Leaderboard & Best Models (Sourced from Firestore / DualBlind benchmark runs)
+app.get("/api/benchmark/leaderboard", (req, res) => {
+  try {
+    const data = computeLeaderboard();
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to load benchmark leaderboard" });
+  }
+});
+
+// Force sync latest runs from Firestore
+app.post("/api/benchmark/sync", async (req, res) => {
+  try {
+    const count = await syncFromFirestore(true);
+    const data = computeLeaderboard();
+    res.json({ success: true, count, data });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to sync Firestore" });
+  }
 });
 
 // OpenRouter Models Refresh / Fetch Endpoint
@@ -662,4 +684,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  startServer();
+}
+
+export default app;

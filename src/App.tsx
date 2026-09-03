@@ -5,9 +5,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LLMModel, CollaborationProtocol, DialogueTurn, FinalConsensus, ProviderApiKeys, AgentTeam } from './types';
+import { BenchmarkLeaderboardData } from './types/benchmark';
 import { SUPPORTED_MODELS, PRESET_TASKS } from './data/benchmarkData';
 import { formatOpenRouterModel } from './data/openRouterModels';
 import { recommendIdealTeamForTask } from './data/radarData';
+import { fetchBenchmarkLeaderboard, triggerFirestoreSync, modelRankingToLLMModel } from './data/benchmarkService';
 import { runClientSideCollaboration } from './utils/directCollaboration';
 import { Header } from './components/Header';
 import { TeamingHeatmap } from './components/TeamingHeatmap';
@@ -50,6 +52,10 @@ export default function App() {
   ]);
 
   const [isHeatmapOpen, setIsHeatmapOpen] = useState(false);
+
+  // Live Firestore Benchmark Leaderboard state
+  const [leaderboardData, setLeaderboardData] = useState<BenchmarkLeaderboardData | null>(null);
+  const [isSyncingFirestore, setIsSyncingFirestore] = useState(false);
 
   // Team Selection View Mode: 'dropdowns' (traditional) | 'skillmap' (interactive star map node selector) | 'both'
   const [teamSelectionMode, setTeamSelectionMode] = useState<'dropdowns' | 'skillmap' | 'both'>('dropdowns');
@@ -180,10 +186,63 @@ export default function App() {
     }
   }, [apiKeys.openrouterApiKey]);
 
-  // Initial load of model catalog on mount
+  // Initial load of model catalog and live Firestore benchmark data
   useEffect(() => {
     fetchModels(false);
+
+    // Fetch live leaderboard rankings from Firestore/DualBlind backend
+    const loadLeaderboard = async () => {
+      try {
+        const data = await fetchBenchmarkLeaderboard();
+        if (data) {
+          setLeaderboardData(data);
+          // If models returned from benchmark runs have high win rates, ensure they are registered in the models pool
+          if (Array.isArray(data.modelRankings) && data.modelRankings.length > 0) {
+            setModels((prevModels) => {
+              const modelMap = new Map<string, LLMModel>();
+              prevModels.forEach((m) => modelMap.set(m.id, m));
+              data.modelRankings.forEach((ranked) => {
+                if (!modelMap.has(ranked.id)) {
+                  modelMap.set(ranked.id, modelRankingToLLMModel(ranked));
+                } else {
+                  // Enrich existing model with live benchmark statistics
+                  const existing = modelMap.get(ranked.id)!;
+                  modelMap.set(ranked.id, {
+                    ...existing,
+                    efficiencyTier: ranked.efficiencyTier,
+                    strengths: [
+                      `${ranked.winRate}% Win Rate (${ranked.runsCount} runs)`,
+                      `${ranked.avgEfficiencyIndex} Efficiency Pts`,
+                      ...existing.strengths.slice(0, 2),
+                    ],
+                  });
+                }
+              });
+              return Array.from(modelMap.values());
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Leaderboard fetch notice:', err);
+      }
+    };
+    loadLeaderboard();
   }, [fetchModels]);
+
+  // Handler for explicit Firestore Sync
+  const handleSyncFirestore = async () => {
+    setIsSyncingFirestore(true);
+    try {
+      const res = await triggerFirestoreSync();
+      if (res.data) {
+        setLeaderboardData(res.data);
+      }
+    } catch (err: any) {
+      console.warn('Firestore sync notice:', err?.message || err);
+    } finally {
+      setIsSyncingFirestore(false);
+    }
+  };
 
   // Automatically update Team 1 with the recommended pairing whenever prompt, tier, or auto-toggle changes
   useEffect(() => {
@@ -416,6 +475,8 @@ export default function App() {
         freeModelCount={freeModelCount}
         onRefreshModels={() => fetchModels(true)}
         isRefreshingModels={isRefreshingModels}
+        benchmarkRunsCount={leaderboardData?.totalRuns}
+        isSyncingFirestore={isSyncingFirestore}
       />
 
       {/* Main Single-Tab Workspace */}
@@ -427,6 +488,9 @@ export default function App() {
               currentAlphaId={primaryAlpha.id}
               currentBetaId={primaryBeta.id}
               onSelectPair={handleSelectPair}
+              leaderboardData={leaderboardData}
+              onSyncFirestore={handleSyncFirestore}
+              isSyncingFirestore={isSyncingFirestore}
             />
           </div>
         )}

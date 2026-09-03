@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Key, Sparkles } from 'lucide-react';
+import { BarChart3, Key, Sparkles, Database } from 'lucide-react';
 
 interface HeaderProps {
   onOpenHeatmap: () => void;
@@ -10,6 +10,8 @@ interface HeaderProps {
   freeModelCount: number;
   onRefreshModels: () => void;
   isRefreshingModels: boolean;
+  benchmarkRunsCount?: number;
+  isSyncingFirestore?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +19,8 @@ export const Header: React.FC<HeaderProps> = ({
   isHeatmapOpen,
   onOpenApiSettings,
   hasOpenRouterKey,
+  benchmarkRunsCount,
+  isSyncingFirestore,
 }) => {
   return (
     <header className="bg-slate-950/90 backdrop-blur-md sticky top-0 z-40 border-b border-slate-900/80 shadow-lg shadow-black/40">
@@ -179,8 +183,13 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
             }`}
           >
-            <BarChart3 className="w-3.5 h-3.5" />
+            <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
             <span className="text-[11px]">{isHeatmapOpen ? 'Close Matrix' : 'Matrix'}</span>
+            {benchmarkRunsCount ? (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/50 font-mono hidden sm:inline-block">
+                {benchmarkRunsCount}
+              </span>
+            ) : null}
           </button>
         </div>
       </div>

@@ -95,14 +95,24 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
     return getMergedSwarmProfile(effectiveTeams);
   }, [effectiveTeams]);
 
+  // Zoom-dependent Level of Detail (LOD) nodes & connections
+  const visiblePerks = useMemo(() => {
+    return mergedData.perks.filter((p) => {
+      if (!p.minZoomLevel) return true;
+      return zoomLevel >= p.minZoomLevel;
+    });
+  }, [mergedData.perks, zoomLevel]);
+
   // Default selected perk fallback
   const activePerk = useMemo(() => {
     return (
       hoveredPerk ||
+      visiblePerks.find((p) => p.id === selectedPerkId) ||
       mergedData.perks.find((p) => p.id === selectedPerkId) ||
+      visiblePerks[0] ||
       mergedData.perks[0]
     );
-  }, [hoveredPerk, selectedPerkId, mergedData.perks]);
+  }, [hoveredPerk, selectedPerkId, visiblePerks, mergedData.perks]);
 
   // Recommendation info for the currently selected perk
   const recInfo = useMemo(() => {
@@ -578,6 +588,13 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                 <span className="text-[10px] font-mono text-slate-400 mr-1.5 flex items-center gap-1">
                   <Maximize2 className="w-3 h-3 text-slate-500" />
                   <span>Zoom: {Math.round(zoomLevel * 100)}%</span>
+                  {zoomLevel >= 1.5 ? (
+                    <span className="px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-400 border border-cyan-500/40 text-[9px] font-bold">Deep Logic LOD</span>
+                  ) : zoomLevel >= 1.25 ? (
+                    <span className="px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-500/40 text-[9px] font-bold">Intermediate LOD</span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 text-[9px]">Macro Map</span>
+                  )}
                 </span>
 
                 <button
@@ -585,7 +602,7 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                   type="button"
                   onClick={handleZoomIn}
                   className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer border border-slate-700"
-                  title="Zoom In (+)"
+                  title="Zoom In (+) - Reveals deeper logic steps"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
@@ -862,7 +879,7 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                   </g>
 
                   {/* --- Luminous Constellation Filaments / Energy Beams --- */}
-                  {mergedData.perks.map((perk) => {
+                  {visiblePerks.map((perk) => {
                     return perk.parentIds.map((pId) => {
                       let parentX = 50;
                       let parentY = 50;
@@ -870,6 +887,10 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                       if (pId !== 'core-nexus') {
                         const parentPerk = mergedData.perks.find((p) => p.id === pId);
                         if (parentPerk) {
+                          // If parent perk is hidden due to zoom LOD, skip drawing line to it
+                          if (parentPerk.minZoomLevel && zoomLevel < parentPerk.minZoomLevel) {
+                            return null;
+                          }
                           parentX = parentPerk.x;
                           parentY = parentPerk.y;
                         }
@@ -944,12 +965,13 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                   </g>
 
                   {/* --- Skill Nodes with Infilled Sector Offsets and Optical Diffraction Flares --- */}
-                  {mergedData.perks.map((perk) => {
+                  {visiblePerks.map((perk) => {
                     if (perk.id === 'hyb-legendary-sovereign') return null;
 
                     const isSelected = selectedPerkId === perk.id || hoveredPerk?.id === perk.id;
                     const isHybrid = perk.category === 'Hybrid';
-                    const flareSize = isHybrid ? 4.5 : (perk.tier === 3 ? 4.0 : 3.2);
+                    const isMicroStep = Boolean(perk.minZoomLevel);
+                    const flareSize = isHybrid ? 4.5 : (perk.tier === 3 ? 4.0 : (isMicroStep ? 2.4 : 3.2));
 
                     return (
                       <g
@@ -980,8 +1002,8 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                               r={flareSize + 3}
                               fill="none"
                               stroke={perk.color}
-                              strokeWidth="0.25"
-                              opacity="0.6"
+                              strokeWidth={0.25}
+                              opacity={0.6}
                             />
                           </g>
                         )}
@@ -995,7 +1017,7 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                               cy={perk.y}
                               r={flareSize * 1.6}
                               fill={perk.color}
-                              opacity="0.3"
+                              opacity={isMicroStep ? 0.2 : 0.3}
                               filter="url(#intenseStarGlow)"
                             />
 
@@ -1004,13 +1026,13 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                               d={`M ${perk.x} ${perk.y - flareSize} Q ${perk.x} ${perk.y} ${perk.x + flareSize * 0.35} ${perk.y} Q ${perk.x} ${perk.y} ${perk.x} ${perk.y + flareSize} Q ${perk.x} ${perk.y} ${perk.x - flareSize * 0.35} ${perk.y} Z`}
                               fill="#ffffff"
                               filter="url(#intenseStarGlow)"
-                              opacity={isSelected ? 0.95 : 0.8}
+                              opacity={isSelected ? 0.95 : (isMicroStep ? 0.65 : 0.8)}
                             />
                             <path
                               d={`M ${perk.x - flareSize} ${perk.y} Q ${perk.x} ${perk.y} ${perk.x} ${perk.y - flareSize * 0.35} Q ${perk.x} ${perk.y} ${perk.x + flareSize} Q ${perk.x} ${perk.y} ${perk.x} ${perk.y + flareSize * 0.35} Z`}
                               fill="#ffffff"
                               filter="url(#intenseStarGlow)"
-                              opacity={isSelected ? 0.95 : 0.8}
+                              opacity={isSelected ? 0.95 : (isMicroStep ? 0.65 : 0.8)}
                             />
                           </g>
                         )}
@@ -1019,20 +1041,20 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                         <circle
                           cx={perk.x}
                           cy={perk.y}
-                          r={perk.isUnlocked ? (isHybrid ? '1.9' : '1.5') : '1.1'}
+                          r={perk.isUnlocked ? (isHybrid ? 1.9 : (isMicroStep ? 1.0 : 1.5)) : (isMicroStep ? 0.8 : 1.1)}
                           fill={perk.isUnlocked ? '#ffffff' : '#1e293b'}
                           stroke={perk.isUnlocked ? perk.color : '#475569'}
-                          strokeWidth={perk.isUnlocked ? '0.6' : '0.3'}
+                          strokeWidth={perk.isUnlocked ? (isMicroStep ? 0.4 : 0.6) : 0.3}
                         />
 
-                        {/* Node Text Label: Displayed only for landmark major nodes, or when actively hovered/selected */}
-                        {(perk.isMajorNode || isSelected || hoveredPerk?.id === perk.id) && (
+                        {/* Node Text Label: Displayed only for landmark major nodes, or when actively hovered/selected, or at deep zoom */}
+                        {(perk.isMajorNode || isSelected || hoveredPerk?.id === perk.id || (zoomLevel >= 1.75 && !isMicroStep)) && (
                           <text
                             x={perk.x}
                             y={perk.y + (perk.y > 65 ? -3.4 : 3.8)}
                             textAnchor="middle"
                             fill={isSelected || hoveredPerk?.id === perk.id ? '#ffffff' : (perk.isUnlocked ? perk.color : '#94a3b8')}
-                            fontSize={perk.isMajorNode ? '2.3' : '2.0'}
+                            fontSize={perk.isMajorNode ? '2.3' : (isMicroStep ? '1.7' : '2.0')}
                             fontWeight={perk.isMajorNode ? '700' : '600'}
                             className="font-sans select-none tracking-tight pointer-events-none"
                             style={{
@@ -1102,6 +1124,12 @@ export const MergedSkillTreeCard: React.FC<MergedSkillTreeCardProps> = ({
                       >
                         {activePerk.discipline}
                       </span>
+                      {activePerk.stepDetail && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 flex items-center gap-1">
+                          <Layers className="w-3 h-3 text-cyan-400" />
+                          {activePerk.stepDetail}
+                        </span>
+                      )}
                       {activePerk.isUnlocked ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" /> Active Skill
