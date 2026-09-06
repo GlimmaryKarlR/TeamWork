@@ -7,6 +7,7 @@ import { SUPPORTED_MODELS, getTeamBenchmark } from "./src/data/benchmarkData.js"
 import { formatOpenRouterModel } from "./src/data/openRouterModels.js";
 import { LLMModel } from "./src/types.js";
 import { computeLeaderboard, syncFromFirestore, getAllRuns } from "./server/firestoreLeaderboard.js";
+import { recommendFromDualBlind } from "./server/dualBlindDataset.js";
 
 dotenv.config();
 
@@ -67,6 +68,21 @@ app.post("/api/benchmark/sync", async (req, res) => {
     res.json({ success: true, count, data });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || "Failed to sync Firestore" });
+  }
+});
+
+app.get("/api/benchmark/dualblind/recommend", async (req, res) => {
+  const prompt = String(req.query.prompt || "");
+  const onlyFreeTier = req.query.free === "true";
+  if (!prompt.trim()) {
+    return res.status(400).json({ error: "Prompt is required." });
+  }
+
+  try {
+    const recommendation = await recommendFromDualBlind(prompt, onlyFreeTier);
+    res.json({ recommendation });
+  } catch (err: any) {
+    res.status(502).json({ error: err?.message || "Failed to load DualBlind dataset." });
   }
 });
 

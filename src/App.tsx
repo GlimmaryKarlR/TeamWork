@@ -9,7 +9,7 @@ import { BenchmarkLeaderboardData } from './types/benchmark';
 import { SUPPORTED_MODELS, PRESET_TASKS } from './data/benchmarkData';
 import { formatOpenRouterModel } from './data/openRouterModels';
 import { recommendIdealTeamForTask } from './data/radarData';
-import { fetchBenchmarkLeaderboard, triggerFirestoreSync, modelRankingToLLMModel } from './data/benchmarkService';
+import { fetchBenchmarkLeaderboard, triggerFirestoreSync, modelRankingToLLMModel, fetchDualBlindRecommendation } from './data/benchmarkService';
 import { runClientSideCollaboration } from './utils/directCollaboration';
 import { Header } from './components/Header';
 import { TeamingHeatmap } from './components/TeamingHeatmap';
@@ -247,15 +247,21 @@ export default function App() {
   // Automatically update Team 1 with the recommended pairing whenever prompt, tier, or auto-toggle changes
   useEffect(() => {
     if (autoSelectTeam && prompt.trim()) {
-      const rec = recommendIdealTeamForTask(prompt, tierFilter === 'free');
-      const a = models.find((m) => m.id === rec.alphaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.alphaModelId);
-      const b = models.find((m) => m.id === rec.betaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.betaModelId);
-      if (a && b) {
-        setTeams((prev) => {
-          if (prev.length === 0) return [{ id: 'team-1', name: 'Team 1', alphaModel: a, betaModel: b }];
-          return prev.map((t, idx) => (idx === 0 ? { ...t, alphaModel: a, betaModel: b } : t));
-        });
-      }
+      let cancelled = false;
+      const updateRecommendation = async () => {
+        const rec = await fetchDualBlindRecommendation(prompt, tierFilter === 'free') || recommendIdealTeamForTask(prompt, tierFilter === 'free');
+        if (cancelled) return;
+        const a = models.find((m) => m.id === rec.alphaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.alphaModelId);
+        const b = models.find((m) => m.id === rec.betaModelId) || SUPPORTED_MODELS.find((m) => m.id === rec.betaModelId);
+        if (a && b) {
+          setTeams((prev) => {
+            if (prev.length === 0) return [{ id: 'team-1', name: 'Team 1', alphaModel: a, betaModel: b }];
+            return prev.map((t, idx) => (idx === 0 ? { ...t, alphaModel: a, betaModel: b } : t));
+          });
+        }
+      };
+      updateRecommendation();
+      return () => { cancelled = true; };
     }
   }, [prompt, tierFilter, autoSelectTeam, models]);
 

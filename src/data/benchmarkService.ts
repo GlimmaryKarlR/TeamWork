@@ -1,6 +1,7 @@
 import { BenchmarkLeaderboardData, ModelRankingItem, PairRankingItem } from "../types/benchmark";
 import { LLMModel } from "../types";
 import { extractProvider, getProviderVisualTheme, getTeamRoleForModel } from "./openRouterModels";
+import { TeamRecommendation } from "./radarData";
 
 const STORAGE_KEY = "teamwork_benchmark_leaderboard_cache";
 
@@ -54,6 +55,22 @@ export async function triggerFirestoreSync(): Promise<{ success: boolean; count:
     } catch {}
   }
   return result;
+}
+
+export async function fetchDualBlindRecommendation(
+  prompt: string,
+  onlyFreeTier: boolean
+): Promise<TeamRecommendation | null> {
+  try {
+    const params = new URLSearchParams({ prompt });
+    if (onlyFreeTier) params.set("free", "true");
+    const res = await fetch(`/api/benchmark/dualblind/recommend?${params.toString()}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.recommendation || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
