@@ -59,7 +59,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#c7d2fe',
     efficiencyTier: 'S',
     contextWindow: '128K tokens',
-    isFree: true,
+    isFree: false,
   },
   {
     id: 'deepseek-v3',
@@ -74,7 +74,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#ddd6fe',
     efficiencyTier: 'A',
     contextWindow: '128K tokens',
-    isFree: true,
+    isFree: false,
   },
   {
     id: 'qwen-2.5-72b',
@@ -89,7 +89,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#a5f3fc',
     efficiencyTier: 'A',
     contextWindow: '128K tokens',
-    isFree: true,
+    isFree: false,
   },
   {
     id: 'llama-3.3-70b',
@@ -104,7 +104,7 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     badgeBorder: '#bfdbfe',
     efficiencyTier: 'B',
     contextWindow: '128K tokens',
-    isFree: true,
+    isFree: false,
   },
   {
     id: 'nova-lite',
@@ -150,6 +150,36 @@ export const SUPPORTED_MODELS: LLMModel[] = [
     efficiencyTier: 'A',
     contextWindow: '200K tokens',
     isFree: false,
+  },
+  {
+    id: 'poolside/laguna-s-2.1:free',
+    name: 'Laguna S 2.1 (Free)',
+    brand: 'Laguna S 2.1 Free',
+    provider: 'Poolside',
+    description: 'High-speed verified free code synthesis and algorithmic formulation model on OpenRouter.',
+    strengths: ['Free Tier', 'Fast Execution', 'Code Synthesis', 'Zero Cost'],
+    teamRole: 'Implementation Lead & Code Synthesizer',
+    accentColor: '#0ea5e9', // Sky Blue
+    lightBg: '#f0f9ff',
+    badgeBorder: '#7dd3fc',
+    efficiencyTier: 'A',
+    contextWindow: '262K tokens',
+    isFree: true,
+  },
+  {
+    id: 'google/gemma-4-26b-a4b-it:free',
+    name: 'Gemma 4 26B (Free)',
+    brand: 'Gemma 4 26B Free',
+    provider: 'Google',
+    description: 'Advanced lightweight reasoning model delivering strong general domain analysis with zero API token cost.',
+    strengths: ['Free Tier', 'Balanced Reasoning', 'Structured Dialogue', 'Zero Cost'],
+    teamRole: 'Domain Specialist & Knowledge Verifier',
+    accentColor: '#3b82f6', // Blue
+    lightBg: '#eff6ff',
+    badgeBorder: '#93c5fd',
+    efficiencyTier: 'A',
+    contextWindow: '262K tokens',
+    isFree: true,
   }
 ];
 

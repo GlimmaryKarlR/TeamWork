@@ -362,21 +362,24 @@ api.get("/benchmarks/pair", (req, res) => {
 // Helper for calling OpenRouter Chat API. Some legacy :free routes are no longer valid,
 // so we prefer the supported free aliases that currently exist in OpenRouter.
 const SERVER_FREE_FALLBACKS = [
+  "poolside/laguna-s-2.1:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "google/gemma-4-31b-it:free",
+  "cohere/north-mini-code:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "nex-agi/nex-n2.5-mini:free",
+  "poolside/laguna-xs-2.1:free",
   "openrouter/free",
-  "deepseek/deepseek-chat:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-  "nvidia/llama-3.1-nemotron-70b-instruct:free",
-  "google/gemini-2.0-flash-exp:free",
 ];
 
 const SERVER_FREE_MODEL_ALIASES: Record<string, string> = {
-  "gemini-3.7-flash": "google/gemini-2.0-flash-exp:free",
-  "deepseek-r1": "deepseek/deepseek-chat:free",
-  "deepseek-v3": "deepseek/deepseek-chat:free",
-  "qwen-2.5-72b": "qwen/qwen-2.5-72b-instruct:free",
-  "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct:free",
-  "nemotron-3-30b": "nvidia/llama-3.1-nemotron-70b-instruct:free",
+  "gemini-3.7-flash": "google/gemini-2.5-flash",
+  "deepseek-r1": "deepseek/deepseek-r1",
+  "deepseek-v3": "deepseek/deepseek-chat",
+  "qwen-2.5-72b": "qwen/qwen-2.5-72b-instruct",
+  "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct",
+  "nemotron-3-30b": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
 };
 
 async function callOpenRouterDirect(
@@ -416,6 +419,14 @@ async function callOpenRouterDirect(
     } catch {}
     const errorMsg = parsed?.error?.message || errorText;
     console.warn(`[Server OpenRouter] Error for ${targetModel} (HTTP ${response.status}):`, errorMsg);
+
+    // If OpenRouter informs us that a model moved from free to paid, use the recommended paid slug
+    const slugMatch = errorMsg.match(/use this slug instead:\s*([^\s]+)/i);
+    if (slugMatch && slugMatch[1] && retryCount < 2) {
+      const suggestedSlug = slugMatch[1].trim();
+      console.warn(`[Server OpenRouter 404 Recovery] Switching to recommended slug: ${suggestedSlug}`);
+      return callOpenRouterDirect(apiKey, suggestedSlug, messages, retryCount + 1, maxTokens);
+    }
 
     if (response.status === 402 || errorMsg.includes("requires more credits") || errorMsg.includes("can only afford")) {
       const affordMatch = errorMsg.match(/can only afford\s+(\d+)/i);

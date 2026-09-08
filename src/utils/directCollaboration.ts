@@ -1,24 +1,26 @@
 import { AgentTeam, DialogueTurn, FinalConsensus, LLMModel } from "../types";
 import { getTeamBenchmark } from "../data/benchmarkData";
 
-// OpenRouter Free Fallback Models in order of preference. Some legacy routes like
-// deepseek/deepseek-r1:free are no longer available; prefer currently supported free models.
+// OpenRouter Free Fallback Models in order of preference. Only active, verified free models
 const FREE_FALLBACK_CANDIDATES = [
+  "poolside/laguna-s-2.1:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "google/gemma-4-31b-it:free",
+  "cohere/north-mini-code:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "nex-agi/nex-n2.5-mini:free",
+  "poolside/laguna-xs-2.1:free",
   "openrouter/free",
-  "deepseek/deepseek-chat:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-  "nvidia/llama-3.1-nemotron-70b-instruct:free",
-  "google/gemini-2.0-flash-exp:free",
 ];
 
 const FREE_MODEL_ALIASES: Record<string, string> = {
-  "gemini-3.7-flash": "google/gemini-2.0-flash-exp:free",
-  "deepseek-r1": "deepseek/deepseek-chat:free",
-  "deepseek-v3": "deepseek/deepseek-chat:free",
-  "qwen-2.5-72b": "qwen/qwen-2.5-72b-instruct:free",
-  "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct:free",
-  "nemotron-3-30b": "nvidia/llama-3.1-nemotron-70b-instruct:free",
+  "gemini-3.7-flash": "google/gemini-2.5-flash",
+  "deepseek-r1": "deepseek/deepseek-r1",
+  "deepseek-v3": "deepseek/deepseek-chat",
+  "qwen-2.5-72b": "qwen/qwen-2.5-72b-instruct",
+  "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct",
+  "nemotron-3-30b": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
 };
 
 export async function callOpenRouterDirect(
@@ -30,9 +32,7 @@ export async function callOpenRouterDirect(
 ): Promise<{ content: string; modelUsed: string; fallbackActive: boolean }> {
   let targetModel = modelId;
 
-  // Normalize legacy or short model IDs to valid OpenRouter endpoints if needed.
-  // For free-tier requests, prefer currently supported free model aliases rather than
-  // deprecated routes such as deepseek/deepseek-r1:free which return 404s.
+  // Normalize legacy or short model IDs to valid OpenRouter endpoints
   if (targetModel === "gemini-3.7-flash") targetModel = "google/gemini-2.5-flash";
   else if (targetModel === "claude-3-7-sonnet") targetModel = "anthropic/claude-3.7-sonnet";
   else if (targetModel === "gpt-4o") targetModel = "openai/gpt-4o";
@@ -64,6 +64,14 @@ export async function callOpenRouterDirect(
     const errorMsg = parsedJson?.error?.message || errorText;
     console.warn(`[OpenRouter Client] Error for ${targetModel} (HTTP ${response.status}):`, errorMsg);
 
+    // If OpenRouter informs us that a model moved to paid, auto-recover to suggested paid slug
+    const slugMatch = errorMsg.match(/use this slug instead:\s*([^\s]+)/i);
+    if (slugMatch && slugMatch[1] && retryCount < 2) {
+      const suggested = slugMatch[1].trim();
+      console.warn(`[OpenRouter Client 404 Recovery] Switching to recommended slug: ${suggested}`);
+      return callOpenRouterDirect(apiKey, suggested, messages, retryCount + 1, maxTokens);
+    }
+
     // 1. Credit balance exhausted (402) OR model requires payment: Fallback to free tier
     if (response.status === 402 || errorMsg.includes("requires more credits") || errorMsg.includes("can only afford")) {
       // Check if token limit can fit
@@ -88,6 +96,10 @@ export async function callOpenRouterDirect(
       console.warn(`[OpenRouter Auto-Fallback] ${targetModel} busy/unavailable. Falling back to ${fallbackTarget}.`);
       await new Promise((r) => setTimeout(r, 1200));
       return callOpenRouterDirect(apiKey, fallbackTarget, messages, retryCount + 1, maxTokens);
+    }
+
+    if (errorMsg.includes("free-models-per-day")) {
+      throw new Error("OpenRouter daily free-tier limit reached (50 requests/day). Add credits on openrouter.ai/keys to unlock 1,000 free requests/day, or configure a Gemini API key in API Settings.");
     }
 
     throw new Error(`OpenRouter API error (${response.status}): ${errorMsg}`);

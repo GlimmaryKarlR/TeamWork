@@ -68,7 +68,7 @@ var SUPPORTED_MODELS = [
     badgeBorder: "#c7d2fe",
     efficiencyTier: "S",
     contextWindow: "128K tokens",
-    isFree: true
+    isFree: false
   },
   {
     id: "deepseek-v3",
@@ -84,7 +84,7 @@ var SUPPORTED_MODELS = [
     badgeBorder: "#ddd6fe",
     efficiencyTier: "A",
     contextWindow: "128K tokens",
-    isFree: true
+    isFree: false
   },
   {
     id: "qwen-2.5-72b",
@@ -100,7 +100,7 @@ var SUPPORTED_MODELS = [
     badgeBorder: "#a5f3fc",
     efficiencyTier: "A",
     contextWindow: "128K tokens",
-    isFree: true
+    isFree: false
   },
   {
     id: "llama-3.3-70b",
@@ -116,7 +116,7 @@ var SUPPORTED_MODELS = [
     badgeBorder: "#bfdbfe",
     efficiencyTier: "B",
     contextWindow: "128K tokens",
-    isFree: true
+    isFree: false
   },
   {
     id: "nova-lite",
@@ -165,6 +165,38 @@ var SUPPORTED_MODELS = [
     efficiencyTier: "A",
     contextWindow: "200K tokens",
     isFree: false
+  },
+  {
+    id: "poolside/laguna-s-2.1:free",
+    name: "Laguna S 2.1 (Free)",
+    brand: "Laguna S 2.1 Free",
+    provider: "Poolside",
+    description: "High-speed verified free code synthesis and algorithmic formulation model on OpenRouter.",
+    strengths: ["Free Tier", "Fast Execution", "Code Synthesis", "Zero Cost"],
+    teamRole: "Implementation Lead & Code Synthesizer",
+    accentColor: "#0ea5e9",
+    // Sky Blue
+    lightBg: "#f0f9ff",
+    badgeBorder: "#7dd3fc",
+    efficiencyTier: "A",
+    contextWindow: "262K tokens",
+    isFree: true
+  },
+  {
+    id: "google/gemma-4-26b-a4b-it:free",
+    name: "Gemma 4 26B (Free)",
+    brand: "Gemma 4 26B Free",
+    provider: "Google",
+    description: "Advanced lightweight reasoning model delivering strong general domain analysis with zero API token cost.",
+    strengths: ["Free Tier", "Balanced Reasoning", "Structured Dialogue", "Zero Cost"],
+    teamRole: "Domain Specialist & Knowledge Verifier",
+    accentColor: "#3b82f6",
+    // Blue
+    lightBg: "#eff6ff",
+    badgeBorder: "#93c5fd",
+    efficiencyTier: "A",
+    contextWindow: "262K tokens",
+    isFree: true
   }
 ];
 var PAIR_BENCHMARKS = {
@@ -973,12 +1005,15 @@ async function recommendFromDualBlind(prompt, onlyFreeTier = false) {
 // server/llmProviders.ts
 import { GoogleGenAI } from "@google/genai";
 var OPENROUTER_FREE_MODELS = [
-  "openrouter/free",
-  "deepseek/deepseek-chat:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-  "nvidia/llama-3.1-nemotron-70b-instruct:free",
-  "google/gemini-2.0-flash-exp:free"
+  "poolside/laguna-s-2.1:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "google/gemma-4-31b-it:free",
+  "cohere/north-mini-code:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "nex-agi/nex-n2.5-mini:free",
+  "poolside/laguna-xs-2.1:free",
+  "openrouter/free"
 ];
 function hasAnyApiKey(keys) {
   return Boolean(
@@ -990,10 +1025,10 @@ async function callOpenRouter(apiKey, modelId, messages, maxTokens = 1500, retry
   if (targetModel === "gemini-3.7-flash") targetModel = "google/gemini-2.5-flash";
   else if (targetModel === "claude-3-7-sonnet") targetModel = "anthropic/claude-3.7-sonnet";
   else if (targetModel === "gpt-4o") targetModel = "openai/gpt-4o";
-  else if (targetModel === "deepseek-r1") targetModel = "deepseek/deepseek-chat:free";
-  else if (targetModel === "deepseek-v3") targetModel = "deepseek/deepseek-chat:free";
-  else if (targetModel === "qwen-2.5-72b") targetModel = "qwen/qwen-2.5-72b-instruct:free";
-  else if (targetModel === "llama-3.3-70b") targetModel = "meta-llama/llama-3.3-70b-instruct:free";
+  else if (targetModel === "deepseek-r1") targetModel = "deepseek/deepseek-r1";
+  else if (targetModel === "deepseek-v3") targetModel = "deepseek/deepseek-chat";
+  else if (targetModel === "qwen-2.5-72b") targetModel = "qwen/qwen-2.5-72b-instruct";
+  else if (targetModel === "llama-3.3-70b") targetModel = "meta-llama/llama-3.3-70b-instruct";
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -1018,6 +1053,12 @@ async function callOpenRouter(apiKey, modelId, messages, maxTokens = 1500, retry
     }
     const errorMsg = parsed?.error?.message || errorText;
     console.warn(`[OpenRouter Provider] Error for ${targetModel} (HTTP ${response.status}):`, errorMsg);
+    const slugMatch = errorMsg.match(/use this slug instead:\s*([^\s]+)/i);
+    if (slugMatch && slugMatch[1] && retryCount < 2) {
+      const suggestedSlug = slugMatch[1].trim();
+      console.warn(`[OpenRouter 404 Recovery] Switching to recommended slug: ${suggestedSlug}`);
+      return callOpenRouter(apiKey, suggestedSlug, messages, maxTokens, retryCount + 1);
+    }
     if (response.status === 402 || errorMsg.includes("requires more credits") || errorMsg.includes("can only afford")) {
       const affordMatch = errorMsg.match(/can only afford\s+(\d+)/i);
       if (affordMatch && affordMatch[1] && retryCount < 1) {
@@ -1051,26 +1092,44 @@ async function callOpenRouter(apiKey, modelId, messages, maxTokens = 1500, retry
 }
 async function callGemini(apiKey, modelName, systemPrompt, userPrompt) {
   const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
-  const targetModel = "gemini-2.5-flash";
-  const response = await ai.models.generateContent({
-    model: targetModel,
-    contents: userPrompt,
-    config: {
-      systemInstruction: systemPrompt,
-      temperature: 0.7,
-      maxOutputTokens: 2e3
+  const candidateModels = [
+    "gemini-3.8-flash",
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-pro-preview"
+  ];
+  let lastErr = null;
+  for (const targetModel of candidateModels) {
+    try {
+      const response = await ai.models.generateContent({
+        model: targetModel,
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.7,
+          maxOutputTokens: 2e3
+        }
+      });
+      const content = response.text || "";
+      if (content.trim()) {
+        return {
+          content,
+          modelUsed: targetModel,
+          provider: "Google Gemini",
+          tokensUsed: Math.round(content.length / 3.8)
+        };
+      }
+    } catch (err) {
+      lastErr = err;
+      const errMsg = err?.message || "";
+      if (errMsg.includes("quota") || errMsg.includes("Quota") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand") || errMsg.includes("demand")) {
+        console.warn(`[Gemini transient issue on ${targetModel}: ${errMsg.slice(0, 50)}, testing next model]`);
+        continue;
+      }
+      throw err;
     }
-  });
-  const content = response.text || "";
-  if (!content.trim()) {
-    throw new Error("Gemini returned empty response text.");
   }
-  return {
-    content,
-    modelUsed: targetModel,
-    provider: "Google Gemini",
-    tokensUsed: Math.round(content.length / 3.8)
-  };
+  throw lastErr || new Error("Gemini returned empty response text.");
 }
 async function callOpenAI(apiKey, modelId, messages, maxTokens = 1500) {
   let targetModel = modelId;
@@ -1275,7 +1334,21 @@ async function executeAgentTurn(modelId, modelName, systemPrompt, messages, keys
   }
   const openrouterKey = keys.openrouterApiKey?.trim() || process.env.OPENROUTER_API_KEY?.trim();
   if (openrouterKey) {
-    return await callOpenRouter(openrouterKey, modelId, fullMessages);
+    try {
+      return await callOpenRouter(openrouterKey, modelId, fullMessages);
+    } catch (openRouterErr) {
+      console.warn(`[OpenRouter call failed, testing fallback]: ${openRouterErr?.message}`);
+      if (geminiKey) {
+        console.warn(`[Auto-recovering turn via Gemini 3.8 Flash]: ${modelName} (${modelId})`);
+        const userPrompt = messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n");
+        const geminiRes = await callGemini(geminiKey, modelId, systemPrompt, userPrompt);
+        return {
+          ...geminiRes,
+          modelUsed: `${modelId} (fallback: Gemini 3.8 Flash)`
+        };
+      }
+      throw openRouterErr;
+    }
   }
   if (geminiKey) {
     const userPrompt = messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n");

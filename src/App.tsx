@@ -426,19 +426,27 @@ export default function App() {
 
         if (response.ok) {
           data = await response.json();
+        } else {
+          const errData = await response.json().catch(() => null);
+          const serverErrMsg = errData?.error;
+          if (serverErrMsg) {
+            throw new Error(serverErrMsg);
+          }
         }
-      } catch {
-        // Backend route unavailable (e.g. static host like Vercel)
-      }
-
-      // If backend was not available and user provided an OpenRouter key, run direct browser execution
-      if (!data && apiKeys.openrouterApiKey) {
-        data = await runClientSideCollaboration({
-          prompt,
-          teams,
-          rounds,
-          openrouterApiKey: apiKeys.openrouterApiKey,
-        });
+      } catch (fetchErr: any) {
+        // If it was an explicit server response error, rethrow to show user
+        if (fetchErr?.message && !fetchErr.message.includes('fetch') && !fetchErr.message.includes('network')) {
+          throw fetchErr;
+        }
+        // Otherwise backend route was network-unreachable (e.g. offline or static host); try client fallback
+        if (apiKeys.openrouterApiKey) {
+          data = await runClientSideCollaboration({
+            prompt,
+            teams,
+            rounds,
+            openrouterApiKey: apiKeys.openrouterApiKey,
+          });
+        }
       }
 
       clearTimeout(timer1);
