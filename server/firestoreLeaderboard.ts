@@ -24,17 +24,57 @@ let lastSyncError: string | null = null;
 let lastSyncSuccessTime: string | null = null;
 let cachedLeaderboard: BenchmarkLeaderboardData | null = null;
 
+function resolveFirebaseConfig(): Record<string, string> | null {
+  const envConfig: Record<string, string> = {
+    apiKey: process.env.FIREBASE_API_KEY || "",
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || "",
+    projectId: process.env.FIREBASE_PROJECT_ID || "",
+    appId: process.env.FIREBASE_APP_ID || "",
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "",
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "",
+    measurementId: process.env.FIREBASE_MEASUREMENT_ID || "",
+    firestoreDatabaseId: process.env.FIREBASE_FIRESTORE_DATABASE_ID || "",
+  };
+
+  if (Object.values(envConfig).some((val) => val && val.trim().length > 0)) {
+    return {
+      apiKey: envConfig.apiKey,
+      authDomain: envConfig.authDomain,
+      projectId: envConfig.projectId,
+      appId: envConfig.appId,
+      storageBucket: envConfig.storageBucket,
+      messagingSenderId: envConfig.messagingSenderId,
+      measurementId: envConfig.measurementId,
+      firestoreDatabaseId: envConfig.firestoreDatabaseId,
+    };
+  }
+
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (!fs.existsSync(configPath)) {
+    console.warn("[Firestore Engine] No Firebase config found in env or firebase-applet-config.json; using cached benchmark data.");
+    return null;
+  }
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    return raw;
+  } catch (e: any) {
+    console.warn("[Firestore Engine] Firebase config file parse error:", e?.message || e);
+    return null;
+  }
+}
+
 export function getDb(): Firestore | null {
   if (firebaseDb) return firebaseDb;
   try {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    if (!fs.existsSync(configPath)) {
-      console.warn("[Firestore Engine] firebase-applet-config.json not found, using cached benchmark data.");
+    const config = resolveFirebaseConfig();
+    if (!config || !config.projectId) {
+      console.warn("[Firestore Engine] Firebase project config unavailable, using cached benchmark data.");
       return null;
     }
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+
     const app = getApps().length === 0 ? initializeApp(config) : getApp();
-    const databaseId = config.firestoreDatabaseId || "(default)";
+    const databaseId = config.firestoreDatabaseId || process.env.FIREBASE_FIRESTORE_DATABASE_ID || "(default)";
     firebaseDb = getFirestore(app, databaseId);
     return firebaseDb;
   } catch (e: any) {
