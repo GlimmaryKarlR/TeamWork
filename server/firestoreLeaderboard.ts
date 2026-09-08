@@ -3,9 +3,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, getDocs, Firestore } from "firebase/firestore";
-import { BenchmarkRunDoc, BenchmarkLeaderboardData, ModelRankingItem, PairRankingItem } from "../src/types/benchmark.js";
-import { extractProvider, getTeamRoleForModel } from "../src/data/openRouterModels.js";
-import { LLMModel } from "../src/types.js";
+import { BenchmarkRunDoc, BenchmarkLeaderboardData, ModelRankingItem, PairRankingItem } from "../src/types/benchmark.ts";
+import { extractProvider, getTeamRoleForModel } from "../src/data/openRouterModels.ts";
+import { LLMModel } from "../src/types.ts";
 
 let moduleDir = process.cwd();
 try {

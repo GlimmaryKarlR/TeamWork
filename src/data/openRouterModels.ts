@@ -1,5 +1,5 @@
-import { LLMModel } from '../types';
-import { SUPPORTED_MODELS } from './benchmarkData';
+import { LLMModel } from '../types.ts';
+import { SUPPORTED_MODELS } from './benchmarkData.ts';
 
 /**
  * Format provider name from model ID prefix

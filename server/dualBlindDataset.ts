@@ -1,4 +1,4 @@
-import { RadarCategory, bucketChallengeType } from "../src/data/radarData.js";
+import { RadarCategory, bucketChallengeType } from "../src/data/radarData.ts";
 
 const DATASET_BASE_URL = "https://huggingface.co/datasets/GlimmaryKarl/DualBlind/resolve/main/data";
 const CACHE_DURATION_MS = 15 * 60 * 1000;

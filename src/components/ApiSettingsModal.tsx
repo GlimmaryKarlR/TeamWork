@@ -389,6 +389,18 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
           autoComplete="off"
           className="p-4 sm:p-5 space-y-4 overflow-y-auto"
         >
+          {/* Hidden username input to satisfy browser password form accessibility guidelines */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            value="teamwork-api-key-manager"
+            readOnly
+            className="sr-only"
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+
           {/* Universal OpenRouter API Key Input */}
           <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
             <div className="flex items-center justify-between">

@@ -1,4 +1,4 @@
-import { bucketChallengeType } from './radarData';
+import { bucketChallengeType } from './radarData.ts';
 
 export interface RawBenchmarkRun {
   problemId?: string;

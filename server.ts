@@ -2,17 +2,17 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
-import { SUPPORTED_MODELS, getTeamBenchmark } from "./src/data/benchmarkData.js";
-import { formatOpenRouterModel } from "./src/data/openRouterModels.js";
-import { LLMModel } from "./src/types.js";
-import { computeLeaderboard, syncFromFirestore, getAllRuns } from "./server/firestoreLeaderboard.js";
-import { recommendFromDualBlind } from "./server/dualBlindDataset.js";
+import { SUPPORTED_MODELS, getTeamBenchmark } from "./src/data/benchmarkData.ts";
+import { formatOpenRouterModel } from "./src/data/openRouterModels.ts";
+import { LLMModel } from "./src/types.ts";
+import { computeLeaderboard, syncFromFirestore, getAllRuns } from "./server/firestoreLeaderboard.ts";
+import { recommendFromDualBlind } from "./server/dualBlindDataset.ts";
 import {
   executeAgentTurn,
   hasAnyApiKey,
   ProviderKeys,
   ChatMessage,
-} from "./server/llmProviders.js";
+} from "./server/llmProviders.ts";
 
 dotenv.config();
 
@@ -744,6 +744,28 @@ Audited failure modes and defenses.`;
       requiresApiKey: isAuthError || !hasAnyApiKey(providerKeys),
     });
   }
+});
+
+// JSON error handling middleware for API routes
+api.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("[API Middleware Error]:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(500).json({
+    error: err?.message || "Internal server error occurred.",
+    status: "error",
+    path: req.originalUrl || req.url,
+  });
+});
+
+// Normalize URLs if a hosting environment (e.g. Vercel) rewrote the path
+app.use((req, res, next) => {
+  const forwardedPath = (req.headers["x-matched-path"] || req.headers["x-forwarded-url"]) as string | undefined;
+  if ((req.url === "/api" || req.url === "/api/" || req.url === "/") && forwardedPath && forwardedPath.startsWith("/api/")) {
+    req.url = forwardedPath;
+  }
+  next();
 });
 
 // Mount API routes under both /api and root / so any proxy or direct routing works seamlessly

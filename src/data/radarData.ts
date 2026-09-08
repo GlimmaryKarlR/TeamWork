@@ -1,4 +1,4 @@
-import { RAW_BENCHMARK_RUNS, RawBenchmarkRun } from './rawBenchmarkRuns';
+import { RAW_BENCHMARK_RUNS, RawBenchmarkRun } from './rawBenchmarkRuns.ts';
 
 export const RADAR_CATEGORIES = [
   'Science & STEM',

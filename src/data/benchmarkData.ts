@@ -1,4 +1,4 @@
-import { LLMModel, TeamPairBenchmark } from '../types';
+import { LLMModel, TeamPairBenchmark } from '../types.ts';
 
 export const SUPPORTED_MODELS: LLMModel[] = [
   {
