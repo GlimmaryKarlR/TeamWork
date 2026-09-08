@@ -1,15 +1,25 @@
 import { AgentTeam, DialogueTurn, FinalConsensus, LLMModel } from "../types";
 import { getTeamBenchmark } from "../data/benchmarkData";
 
-// OpenRouter Free Fallback Models in order of preference
+// OpenRouter Free Fallback Models in order of preference. Some legacy routes like
+// deepseek/deepseek-r1:free are no longer available; prefer currently supported free models.
 const FREE_FALLBACK_CANDIDATES = [
   "openrouter/free",
-  "deepseek/deepseek-r1:free",
   "deepseek/deepseek-chat:free",
   "meta-llama/llama-3.3-70b-instruct:free",
   "qwen/qwen-2.5-72b-instruct:free",
+  "nvidia/llama-3.1-nemotron-70b-instruct:free",
   "google/gemini-2.0-flash-exp:free",
 ];
+
+const FREE_MODEL_ALIASES: Record<string, string> = {
+  "gemini-3.7-flash": "google/gemini-2.0-flash-exp:free",
+  "deepseek-r1": "deepseek/deepseek-chat:free",
+  "deepseek-v3": "deepseek/deepseek-chat:free",
+  "qwen-2.5-72b": "qwen/qwen-2.5-72b-instruct:free",
+  "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct:free",
+  "nemotron-3-30b": "nvidia/llama-3.1-nemotron-70b-instruct:free",
+};
 
 export async function callOpenRouterDirect(
   apiKey: string,
@@ -20,13 +30,13 @@ export async function callOpenRouterDirect(
 ): Promise<{ content: string; modelUsed: string; fallbackActive: boolean }> {
   let targetModel = modelId;
 
-  // Normalize legacy or short model IDs to valid OpenRouter endpoints if needed
+  // Normalize legacy or short model IDs to valid OpenRouter endpoints if needed.
+  // For free-tier requests, prefer currently supported free model aliases rather than
+  // deprecated routes such as deepseek/deepseek-r1:free which return 404s.
   if (targetModel === "gemini-3.7-flash") targetModel = "google/gemini-2.5-flash";
   else if (targetModel === "claude-3-7-sonnet") targetModel = "anthropic/claude-3.7-sonnet";
   else if (targetModel === "gpt-4o") targetModel = "openai/gpt-4o";
-  else if (targetModel === "deepseek-r1") targetModel = "deepseek/deepseek-r1:free";
-  else if (targetModel === "qwen-2.5-72b") targetModel = "qwen/qwen-2.5-72b-instruct:free";
-  else if (targetModel === "llama-3.3-70b") targetModel = "meta-llama/llama-3.3-70b-instruct:free";
+  else if (FREE_MODEL_ALIASES[targetModel]) targetModel = FREE_MODEL_ALIASES[targetModel];
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",

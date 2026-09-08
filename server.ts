@@ -204,15 +204,25 @@ app.get("/api/benchmarks/pair", (req, res) => {
   res.json({ benchmark });
 });
 
-// Helper for calling OpenRouter Chat API
+// Helper for calling OpenRouter Chat API. Some legacy :free routes are no longer valid,
+// so we prefer the supported free aliases that currently exist in OpenRouter.
 const SERVER_FREE_FALLBACKS = [
   "openrouter/free",
-  "deepseek/deepseek-r1:free",
   "deepseek/deepseek-chat:free",
   "meta-llama/llama-3.3-70b-instruct:free",
   "qwen/qwen-2.5-72b-instruct:free",
+  "nvidia/llama-3.1-nemotron-70b-instruct:free",
   "google/gemini-2.0-flash-exp:free",
 ];
+
+const SERVER_FREE_MODEL_ALIASES: Record<string, string> = {
+  "gemini-3.7-flash": "google/gemini-2.0-flash-exp:free",
+  "deepseek-r1": "deepseek/deepseek-chat:free",
+  "deepseek-v3": "deepseek/deepseek-chat:free",
+  "qwen-2.5-72b": "qwen/qwen-2.5-72b-instruct:free",
+  "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct:free",
+  "nemotron-3-30b": "nvidia/llama-3.1-nemotron-70b-instruct:free",
+};
 
 async function callOpenRouterDirect(
   apiKey: string,
@@ -225,9 +235,7 @@ async function callOpenRouterDirect(
   if (targetModel === "gemini-3.7-flash") targetModel = "google/gemini-2.5-flash";
   else if (targetModel === "claude-3-7-sonnet") targetModel = "anthropic/claude-3.7-sonnet";
   else if (targetModel === "gpt-4o") targetModel = "openai/gpt-4o";
-  else if (targetModel === "deepseek-r1") targetModel = "deepseek/deepseek-r1:free";
-  else if (targetModel === "qwen-2.5-72b") targetModel = "qwen/qwen-2.5-72b-instruct:free";
-  else if (targetModel === "llama-3.3-70b") targetModel = "meta-llama/llama-3.3-70b-instruct:free";
+  else if (SERVER_FREE_MODEL_ALIASES[targetModel]) targetModel = SERVER_FREE_MODEL_ALIASES[targetModel];
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',

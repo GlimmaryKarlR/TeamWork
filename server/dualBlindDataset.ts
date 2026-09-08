@@ -8,6 +8,9 @@ interface DualBlindRecord {
   topic?: string;
   domain?: string;
   model?: string;
+  is_verified?: boolean;
+  accuracy_score?: number;
+  efficiency_index?: number;
 }
 
 export interface DatasetTeamRecommendation {
@@ -46,7 +49,7 @@ function parsePair(value?: string): [string, string] | null {
 }
 
 function isFreeModel(id: string): boolean {
-  return ["deepseek-r1", "deepseek-v3", "qwen-2.5-72b", "llama-3.3-70b", "nemotron-3-30b", "mistral-large-2"].includes(id);
+  return ["deepseek-r1", "deepseek-v3", "qwen-2.5-72b", "llama-3.3-70b", "nemotron-3-30b"].includes(id);
 }
 
 async function loadRecords(): Promise<DualBlindRecord[]> {
@@ -78,30 +81,57 @@ export async function recommendFromDualBlind(
 ): Promise<DatasetTeamRecommendation | null> {
   const records = await loadRecords();
   const domain = bucketChallengeType(prompt);
-  const pairCounts = new Map<string, { pair: [string, string]; count: number }>();
+  const pairStats = new Map<string, {
+    pair: [string, string];
+    runs: number;
+    totalAccuracy: number;
+    totalEfficiency: number;
+  }>();
 
   for (const record of records) {
     const recordDomain = bucketChallengeType(record.domain || record.topic || record.suite);
     if (recordDomain !== domain) continue;
+    if (record.is_verified === false) continue;
 
     const pair = parsePair(record.model);
-    if (!pair || pair[0] === pair[1] || (onlyFreeTier && (!isFreeModel(pair[0]) || !isFreeModel(pair[1])))) continue;
+    if (!pair || pair[0] === pair[1]) continue;
+    if (onlyFreeTier && (!isFreeModel(pair[0]) || !isFreeModel(pair[1]))) continue;
 
     const key = pair.join("__");
-    const current = pairCounts.get(key);
-    pairCounts.set(key, { pair, count: (current?.count || 0) + 1 });
+    const accuracy = Number(record.accuracy_score ?? 0);
+    const efficiency = Number(record.efficiency_index ?? 0);
+    const current = pairStats.get(key);
+
+    pairStats.set(key, {
+      pair,
+      runs: (current?.runs || 0) + 1,
+      totalAccuracy: (current?.totalAccuracy || 0) + accuracy,
+      totalEfficiency: (current?.totalEfficiency || 0) + efficiency,
+    });
   }
 
-  const best = [...pairCounts.values()].sort((a, b) => b.count - a.count)[0];
+  const best = [...pairStats.values()].sort((a, b) => {
+    const avgAccuracyDiff = (b.totalAccuracy / b.runs) - (a.totalAccuracy / a.runs);
+    if (Math.abs(avgAccuracyDiff) > 1e-9) return avgAccuracyDiff;
+
+    const avgEfficiencyDiff = (b.totalEfficiency / b.runs) - (a.totalEfficiency / a.runs);
+    if (Math.abs(avgEfficiencyDiff) > 1e-9) return avgEfficiencyDiff;
+
+    return b.runs - a.runs;
+  })[0];
+
   if (!best) return null;
+
+  const avgAccuracy = best.totalAccuracy / best.runs;
+  const avgEfficiency = best.totalEfficiency / best.runs;
 
   return {
     domain,
     alphaModelId: best.pair[0],
     betaModelId: best.pair[1],
-    reasoning: `Selected from ${best.count} verified DualBlind Hugging Face trial(s) for ${domain}.`,
+    reasoning: `Top verified DualBlind team for ${domain}: ${avgAccuracy.toFixed(1)}% avg accuracy and ${avgEfficiency.toFixed(1)} efficiency across ${best.runs} run(s).`,
     isFreeTier: onlyFreeTier,
-    verifiedRuns: best.count,
+    verifiedRuns: best.runs,
     source: "huggingface-dualblind",
   };
 }
