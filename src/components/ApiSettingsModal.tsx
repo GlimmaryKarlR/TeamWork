@@ -379,8 +379,16 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+        {/* Scrollable Form Content */}
+        <form
+          id="api-keys-settings-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSave();
+          }}
+          autoComplete="off"
+          className="p-4 sm:p-5 space-y-4 overflow-y-auto"
+        >
           {/* Universal OpenRouter API Key Input */}
           <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
             <div className="flex items-center justify-between">
@@ -416,6 +424,8 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
             <div className="relative">
               <input
                 id="openrouter-api-key-input"
+                name="openrouterApiKey"
+                autoComplete="new-password"
                 type={showKeyMap['openrouter'] ? 'text' : 'password'}
                 value={keys.openrouterApiKey || ''}
                 onChange={(e) => updateKey('openrouterApiKey', e.target.value)}
@@ -540,6 +550,8 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                         <div className="relative">
                           <input
                             id={`key-input-${prov.id}`}
+                            name={`key-input-${prov.id}`}
+                            autoComplete="new-password"
                             type={isVisible ? 'text' : 'password'}
                             value={currentVal}
                             onChange={(e) => updateKey(prov.id, e.target.value)}
@@ -629,7 +641,7 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
               Your keys are stored securely in your local browser session and directly authenticate multi-agent model queries.
             </span>
           </div>
-        </div>
+        </form>
 
         {/* Footer actions */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800 bg-slate-950/80 shrink-0">

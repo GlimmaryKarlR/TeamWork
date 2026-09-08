@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { SUPPORTED_MODELS, getTeamBenchmark } from "./src/data/benchmarkData.js";
 import { formatOpenRouterModel } from "./src/data/openRouterModels.js";
@@ -18,6 +17,7 @@ import {
 dotenv.config();
 
 const app = express();
+const api = express.Router();
 const PORT = 3000;
 
 app.use(express.json());
@@ -42,7 +42,7 @@ function getGeminiClient(customKey?: string): GoogleGenAI | null {
 }
 
 // Health Check
-app.get("/api/health", (req, res) => {
+api.get("/health", (req, res) => {
   res.json({
     status: "ok",
     service: "TeamWorkAi Multi-Agent Matchup Engine",
@@ -52,12 +52,12 @@ app.get("/api/health", (req, res) => {
 });
 
 // Built-in models metadata
-app.get("/api/models", (req, res) => {
+api.get("/models", (req, res) => {
   res.json({ models: SUPPORTED_MODELS });
 });
 
 // Benchmark Leaderboard & Best Models (Sourced from Firestore / DualBlind benchmark runs)
-app.get("/api/benchmark/leaderboard", (req, res) => {
+api.get("/benchmark/leaderboard", (req, res) => {
   try {
     const data = computeLeaderboard();
     res.json(data);
@@ -67,7 +67,7 @@ app.get("/api/benchmark/leaderboard", (req, res) => {
 });
 
 // Force sync latest runs from Firestore
-app.post("/api/benchmark/sync", async (req, res) => {
+api.post("/benchmark/sync", async (req, res) => {
   try {
     const count = await syncFromFirestore(true);
     const data = computeLeaderboard();
@@ -77,7 +77,7 @@ app.post("/api/benchmark/sync", async (req, res) => {
   }
 });
 
-app.get("/api/benchmark/dualblind/recommend", async (req, res) => {
+api.get("/benchmark/dualblind/recommend", async (req, res) => {
   const prompt = String(req.query.prompt || "");
   const onlyFreeTier = req.query.free === "true";
   if (!prompt.trim()) {
@@ -93,7 +93,7 @@ app.get("/api/benchmark/dualblind/recommend", async (req, res) => {
 });
 
 // OpenRouter Models Refresh / Fetch Endpoint
-app.get("/api/openrouter/models", async (req, res) => {
+api.get("/openrouter/models", async (req, res) => {
   const forceRefresh = req.query.refresh === 'true';
   const apiKey = (req.query.apiKey as string) || process.env.OPENROUTER_API_KEY || '';
 
@@ -174,7 +174,7 @@ app.get("/api/openrouter/models", async (req, res) => {
 });
 
 // Validate OpenRouter API Key
-app.post("/api/openrouter/validate-key", async (req, res) => {
+api.post("/openrouter/validate-key", async (req, res) => {
   const { apiKey } = req.body || {};
   let cleanKey = typeof apiKey === "string" ? apiKey.trim() : "";
   if (cleanKey.startsWith("Bearer ")) {
@@ -235,7 +235,7 @@ app.post("/api/openrouter/validate-key", async (req, res) => {
 });
 
 // Validate Direct Provider Key
-app.post("/api/provider/validate-key", async (req, res) => {
+api.post("/provider/validate-key", async (req, res) => {
   const { provider, apiKey } = req.body || {};
   let cleanKey = typeof apiKey === "string" ? apiKey.trim() : "";
   if (cleanKey.startsWith("Bearer ")) {
@@ -352,7 +352,7 @@ app.post("/api/provider/validate-key", async (req, res) => {
 });
 
 // Benchmark pairing lookup
-app.get("/api/benchmarks/pair", (req, res) => {
+api.get("/benchmarks/pair", (req, res) => {
   const alpha = String(req.query.alpha || "gemini-3.7-flash");
   const beta = String(req.query.beta || "claude-3-7-sonnet");
   const benchmark = getTeamBenchmark(alpha, beta);
@@ -448,7 +448,7 @@ async function callOpenRouterDirect(
   return { content, modelUsed: data.model || targetModel };
 }
 // Run Multi-Agent Team Matchup Collaboration
-app.post("/api/collaborate", async (req, res) => {
+api.post("/collaborate", async (req, res) => {
   const startTime = Date.now();
   const {
     prompt,
@@ -746,9 +746,14 @@ Audited failure modes and defenses.`;
   }
 });
 
+// Mount API routes under both /api and root / so any proxy or direct routing works seamlessly
+app.use("/api", api);
+app.use("/", api);
+
 // Vite Middleware for Dev, Static serving for Prod
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -767,7 +772,24 @@ async function startServer() {
   });
 }
 
-if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+const isDirectEntry = Boolean(
+  process.argv[1] && (
+    process.argv[1].endsWith("server.ts") ||
+    process.argv[1].endsWith("server.cjs") ||
+    process.argv[1].endsWith("server.js")
+  )
+);
+
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.VERCEL_ENV ||
+  process.env.IS_SERVERLESS ||
+  !isDirectEntry
+);
+
+if (!isServerless && isDirectEntry) {
   startServer();
 }
 

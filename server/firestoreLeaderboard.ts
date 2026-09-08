@@ -114,6 +114,10 @@ export function loadCacheFromDisk(): void {
 }
 
 export function persistCacheToDisk(): void {
+  // On read-only serverless filesystems (e.g. Vercel, AWS Lambda), skip disk write
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.IS_SERVERLESS) {
+    return;
+  }
   try {
     const dir = path.dirname(CACHE_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -406,7 +410,26 @@ export function computeLeaderboard(): BenchmarkLeaderboardData {
 // Initial cache load
 loadCacheFromDisk();
 
-// Kick off initial sync in background
-setTimeout(() => {
-  syncFromFirestore(false).catch(() => {});
-}, 3000);
+const isDirectEntry = Boolean(
+  process.argv[1] && (
+    process.argv[1].endsWith("server.ts") ||
+    process.argv[1].endsWith("server.cjs") ||
+    process.argv[1].endsWith("server.js")
+  )
+);
+
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.VERCEL_ENV ||
+  process.env.IS_SERVERLESS ||
+  !isDirectEntry
+);
+
+// Kick off initial sync in background only on persistent standalone servers (skip on serverless lambdas)
+if (!isServerless && isDirectEntry) {
+  setTimeout(() => {
+    syncFromFirestore(false).catch(() => {});
+  }, 3000);
+}
