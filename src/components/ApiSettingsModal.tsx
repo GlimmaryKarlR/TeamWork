@@ -48,12 +48,15 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
     valid: boolean;
     message: string;
   } | null>(null);
+  const [validatingProvider, setValidatingProvider] = useState<string | null>(null);
+  const [providerValidation, setProviderValidation] = useState<Record<string, { valid: boolean; message: string }>>({});
 
   // Sync state when modal opens
   React.useEffect(() => {
     if (isOpen) {
       setKeys(apiKeys);
       setValidationResult(null);
+      setProviderValidation({});
     }
   }, [isOpen, apiKeys]);
 
@@ -67,11 +70,30 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
     setKeys((prev) => ({ ...prev, [field]: value }));
     if (field === 'openrouterApiKey') {
       setValidationResult(null);
+    } else {
+      setProviderValidation((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
   };
 
+  const sanitizeApiKey = (raw: string): string => {
+    let clean = raw.trim();
+    if (clean.startsWith('Bearer ')) {
+      clean = clean.slice(7).trim();
+    }
+    if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+      clean = clean.slice(1, -1).trim();
+    }
+    return clean;
+  };
+
   const handleValidateOpenRouterKey = async () => {
-    const orKey = keys.openrouterApiKey?.trim() || '';
+    const rawKey = keys.openrouterApiKey || '';
+    const orKey = sanitizeApiKey(rawKey);
+
     if (!orKey) {
       setValidationResult({ valid: false, message: 'Please enter an OpenRouter API key first.' });
       return;
@@ -81,32 +103,133 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
     setValidationResult(null);
 
     try {
-      const res = await fetch('/api/openrouter/validate-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: orKey }),
-      });
-      const data = await res.json();
-      if (res.ok && data.valid) {
+      let verified = false;
+      let resultMessage = '';
+
+      // 1. First attempt verification via backend proxy endpoint
+      try {
+        const res = await fetch('/api/openrouter/validate-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: orKey }),
+        });
+
+        const rawText = await res.text();
+        let data: any = null;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          console.warn('[OpenRouter Verification] Non-JSON server response:', rawText);
+        }
+
+        if (data && typeof data === 'object') {
+          if (data.valid) {
+            verified = true;
+            resultMessage = data.message || 'Key verified successfully with OpenRouter!';
+            if (data.data?.limit !== undefined && data.data?.limit !== null) {
+              resultMessage += ` (Limit: $${data.data.limit})`;
+            }
+          } else {
+            resultMessage = data.error || 'Invalid OpenRouter API Key.';
+          }
+        }
+      } catch (serverErr: any) {
+        console.warn('[OpenRouter Verification] Server fetch error, trying direct browser check:', serverErr?.message);
+      }
+
+      // 2. Fallback: If server proxy failed or was unreachable, query OpenRouter directly from browser (CORS enabled)
+      if (!verified && (!resultMessage || resultMessage.includes('A server e') || resultMessage.includes('timed out'))) {
+        try {
+          const directRes = await fetch('https://openrouter.ai/api/v1/auth/key', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${orKey}`,
+              'HTTP-Referer': window.location.origin,
+              'X-Title': 'TeamWorkAi',
+            },
+          });
+
+          if (directRes.ok) {
+            const directData = await directRes.json().catch(() => ({}));
+            verified = true;
+            resultMessage = 'Key verified successfully with OpenRouter!';
+            if (directData?.data?.limit !== undefined && directData?.data?.limit !== null) {
+              resultMessage += ` (Limit: $${directData.data.limit})`;
+            }
+          } else {
+            const errBody = await directRes.text().catch(() => '');
+            let parsedErr: any = null;
+            try {
+              parsedErr = JSON.parse(errBody);
+            } catch {}
+            const errorReason = parsedErr?.error?.message || parsedErr?.error || `OpenRouter check failed (HTTP ${directRes.status})`;
+            resultMessage = errorReason;
+          }
+        } catch (directErr: any) {
+          resultMessage = resultMessage || directErr?.message || 'Unable to connect to OpenRouter verification service.';
+        }
+      }
+
+      if (verified) {
         setValidationResult({
           valid: true,
-          message: 'Key verified successfully with OpenRouter!',
+          message: resultMessage || 'Key verified successfully with OpenRouter!',
         });
         onSaveKeys({ ...keys, openrouterApiKey: orKey });
         await onRefreshModels();
       } else {
         setValidationResult({
           valid: false,
-          message: data.error || 'Invalid OpenRouter API Key.',
+          message: resultMessage || 'Invalid OpenRouter API Key.',
         });
       }
     } catch (err: any) {
       setValidationResult({
         valid: false,
-        message: err.message || 'Validation request failed.',
+        message: err?.message || 'Validation request failed.',
       });
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  const handleValidateDirectKey = async (providerId: keyof ProviderApiKeys) => {
+    const rawVal = (keys[providerId] as string) || '';
+    const cleanVal = sanitizeApiKey(rawVal);
+    if (!cleanVal) return;
+
+    setValidatingProvider(providerId);
+    try {
+      const res = await fetch('/api/provider/validate-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: providerId, apiKey: cleanVal }),
+      });
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch {}
+
+      if (data?.valid) {
+        setProviderValidation((prev) => ({
+          ...prev,
+          [providerId]: { valid: true, message: data.message || 'Key verified!' },
+        }));
+        onSaveKeys({ ...keys, [providerId]: cleanVal });
+      } else {
+        setProviderValidation((prev) => ({
+          ...prev,
+          [providerId]: { valid: false, message: data?.error || 'Invalid API Key' },
+        }));
+      }
+    } catch (err: any) {
+      setProviderValidation((prev) => ({
+        ...prev,
+        [providerId]: { valid: false, message: err?.message || 'Verification failed' },
+      }));
+    } finally {
+      setValidatingProvider(null);
     }
   };
 
@@ -421,17 +544,46 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
                             value={currentVal}
                             onChange={(e) => updateKey(prov.id, e.target.value)}
                             placeholder={prov.placeholder}
-                            className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 pr-8 text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 pr-20 text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
-                          <button
-                            type="button"
-                            onClick={() => toggleShowKey(prov.id)}
-                            className="absolute right-2 top-2 text-slate-400 hover:text-slate-200 cursor-pointer"
-                            title={isVisible ? 'Hide' : 'Show'}
-                          >
-                            {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                          </button>
+                          <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleShowKey(prov.id)}
+                              className="p-1 text-slate-400 hover:text-slate-200 cursor-pointer"
+                              title={isVisible ? 'Hide' : 'Show'}
+                            >
+                              {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            </button>
+                            {currentVal?.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => handleValidateDirectKey(prov.id)}
+                                disabled={validatingProvider === prov.id}
+                                className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-50 transition-colors cursor-pointer"
+                              >
+                                {validatingProvider === prov.id ? 'Testing...' : 'Verify'}
+                              </button>
+                            )}
+                          </div>
                         </div>
+
+                        {providerValidation[prov.id] && (
+                          <div
+                            className={`p-1.5 rounded text-[10px] flex items-center gap-1.5 ${
+                              providerValidation[prov.id].valid
+                                ? 'bg-emerald-950/60 border border-emerald-800/60 text-emerald-300'
+                                : 'bg-red-950/60 border border-red-800/60 text-red-300'
+                            }`}
+                          >
+                            {providerValidation[prov.id].valid ? (
+                              <Check className="w-3 h-3 shrink-0 text-emerald-400" />
+                            ) : (
+                              <AlertCircle className="w-3 h-3 shrink-0 text-red-400" />
+                            )}
+                            <span className="truncate">{providerValidation[prov.id].message}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

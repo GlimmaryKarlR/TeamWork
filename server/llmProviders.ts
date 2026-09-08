@@ -27,10 +27,10 @@ export interface GenerationResult {
 
 const OPENROUTER_FREE_MODELS = [
   "openrouter/free",
-  "deepseek/deepseek-r1:free",
+  "deepseek/deepseek-chat:free",
   "meta-llama/llama-3.3-70b-instruct:free",
   "qwen/qwen-2.5-72b-instruct:free",
-  "deepseek/deepseek-chat:free",
+  "nvidia/llama-3.1-nemotron-70b-instruct:free",
   "google/gemini-2.0-flash-exp:free",
 ];
 
@@ -65,7 +65,8 @@ export async function callOpenRouter(
   if (targetModel === "gemini-3.7-flash") targetModel = "google/gemini-2.5-flash";
   else if (targetModel === "claude-3-7-sonnet") targetModel = "anthropic/claude-3.7-sonnet";
   else if (targetModel === "gpt-4o") targetModel = "openai/gpt-4o";
-  else if (targetModel === "deepseek-r1") targetModel = "deepseek/deepseek-r1:free";
+  else if (targetModel === "deepseek-r1") targetModel = "deepseek/deepseek-chat:free";
+  else if (targetModel === "deepseek-v3") targetModel = "deepseek/deepseek-chat:free";
   else if (targetModel === "qwen-2.5-72b") targetModel = "qwen/qwen-2.5-72b-instruct:free";
   else if (targetModel === "llama-3.3-70b") targetModel = "meta-llama/llama-3.3-70b-instruct:free";
 

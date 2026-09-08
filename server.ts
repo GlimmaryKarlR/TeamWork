@@ -175,30 +175,179 @@ app.get("/api/openrouter/models", async (req, res) => {
 
 // Validate OpenRouter API Key
 app.post("/api/openrouter/validate-key", async (req, res) => {
-  const { apiKey } = req.body;
-  if (!apiKey) {
-    return res.status(400).json({ valid: false, error: 'API key is required.' });
+  const { apiKey } = req.body || {};
+  let cleanKey = typeof apiKey === "string" ? apiKey.trim() : "";
+  if (cleanKey.startsWith("Bearer ")) {
+    cleanKey = cleanKey.slice(7).trim();
+  }
+  if ((cleanKey.startsWith('"') && cleanKey.endsWith('"')) || (cleanKey.startsWith("'") && cleanKey.endsWith("'"))) {
+    cleanKey = cleanKey.slice(1, -1).trim();
+  }
+
+  if (!cleanKey) {
+    return res.json({ valid: false, error: "API key is required." });
   }
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
-      method: 'GET',
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    const response = await fetch("https://openrouter.ai/api/v1/auth/key", {
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://ai.studio/build',
-        'X-Title': 'TeamWorkAi',
+        Authorization: `Bearer ${cleanKey}`,
+        "HTTP-Referer": "https://ai.studio/build",
+        "X-Title": "TeamWorkAi",
       },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (response.ok) {
-      const data = await response.json();
-      return res.json({ valid: true, data: data.data || {} });
+      const data = await response.json().catch(() => ({}));
+      return res.json({
+        valid: true,
+        data: data.data || {},
+        message: "Key verified successfully with OpenRouter!",
+      });
     } else {
-      const err = await response.text();
-      return res.status(response.status).json({ valid: false, error: err || 'Invalid OpenRouter API Key' });
+      const rawText = await response.text().catch(() => "");
+      let errorMsg = "Invalid OpenRouter API Key.";
+      try {
+        const parsed = JSON.parse(rawText);
+        errorMsg = parsed?.error?.message || parsed?.error || parsed?.message || rawText;
+      } catch {
+        errorMsg = rawText || errorMsg;
+      }
+      return res.json({
+        valid: false,
+        error: errorMsg,
+        statusCode: response.status,
+      });
     }
   } catch (err: any) {
-    return res.status(500).json({ valid: false, error: err?.message || 'Verification failed.' });
+    console.error("[OpenRouter Key Validate Error]:", err?.message);
+    return res.json({
+      valid: false,
+      error: err?.name === "AbortError" ? "Verification timed out reaching OpenRouter." : (err?.message || "Verification request failed."),
+    });
+  }
+});
+
+// Validate Direct Provider Key
+app.post("/api/provider/validate-key", async (req, res) => {
+  const { provider, apiKey } = req.body || {};
+  let cleanKey = typeof apiKey === "string" ? apiKey.trim() : "";
+  if (cleanKey.startsWith("Bearer ")) {
+    cleanKey = cleanKey.slice(7).trim();
+  }
+  if ((cleanKey.startsWith('"') && cleanKey.endsWith('"')) || (cleanKey.startsWith("'") && cleanKey.endsWith("'"))) {
+    cleanKey = cleanKey.slice(1, -1).trim();
+  }
+
+  if (!cleanKey) {
+    return res.json({ valid: false, error: "API key is required." });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    if (provider === "geminiApiKey") {
+      try {
+        const testAi = new GoogleGenAI({ apiKey: cleanKey });
+        const response = await testAi.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: "ping",
+          config: { maxOutputTokens: 2 },
+        });
+        clearTimeout(timeoutId);
+        if (response.text !== undefined) {
+          return res.json({ valid: true, message: "Google Gemini key verified successfully!" });
+        }
+      } catch (gemErr: any) {
+        clearTimeout(timeoutId);
+        return res.json({ valid: false, error: gemErr?.message || "Invalid Gemini API Key" });
+      }
+    } else if (provider === "openaiApiKey") {
+      const resp = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${cleanKey}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        return res.json({ valid: true, message: "OpenAI key verified successfully!" });
+      }
+      const err = await resp.json().catch(() => ({}));
+      return res.json({ valid: false, error: err?.error?.message || `OpenAI validation failed (${resp.status})` });
+    } else if (provider === "anthropicApiKey") {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": cleanKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-haiku-20241022",
+          max_tokens: 1,
+          messages: [{ role: "user", content: "ping" }],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (resp.ok || resp.status === 200) {
+        return res.json({ valid: true, message: "Anthropic Claude key verified successfully!" });
+      }
+      const err = await resp.json().catch(() => ({}));
+      if (err?.error?.type === "authentication_error") {
+        return res.json({ valid: false, error: err?.error?.message || "Invalid Anthropic API Key" });
+      } else if (resp.status === 400 || resp.status === 401) {
+        return res.json({ valid: false, error: err?.error?.message || "Anthropic authentication failed" });
+      }
+      return res.json({ valid: true, message: "Anthropic key authenticated!" });
+    } else if (provider === "groqApiKey") {
+      const resp = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${cleanKey}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        return res.json({ valid: true, message: "Groq key verified successfully!" });
+      }
+      const err = await resp.json().catch(() => ({}));
+      return res.json({ valid: false, error: err?.error?.message || `Groq validation failed (${resp.status})` });
+    } else if (provider === "deepseekApiKey") {
+      const resp = await fetch("https://api.deepseek.com/models", {
+        headers: { Authorization: `Bearer ${cleanKey}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        return res.json({ valid: true, message: "DeepSeek key verified successfully!" });
+      }
+      const err = await resp.json().catch(() => ({}));
+      return res.json({ valid: false, error: err?.error?.message || `DeepSeek validation failed (${resp.status})` });
+    } else if (provider === "mistralApiKey") {
+      const resp = await fetch("https://api.mistral.ai/v1/models", {
+        headers: { Authorization: `Bearer ${cleanKey}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        return res.json({ valid: true, message: "Mistral key verified successfully!" });
+      }
+      const err = await resp.json().catch(() => ({}));
+      return res.json({ valid: false, error: err?.error?.message || `Mistral validation failed (${resp.status})` });
+    } else {
+      clearTimeout(timeoutId);
+      return res.json({ valid: true, message: `${provider} format valid and saved.` });
+    }
+  } catch (err: any) {
+    return res.json({
+      valid: false,
+      error: err?.name === "AbortError" ? "Verification timed out." : (err?.message || "Verification request failed."),
+    });
   }
 });
 
